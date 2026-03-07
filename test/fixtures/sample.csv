@@ -1,0 +1,9 @@
+name,email,outlet,role,phone
+Sarah Jones,sarah.jones@bbc.co.uk,BBC Radio 1,Producer,+44 7700 900001
+Tom Richards,tom@radiox.co.uk,Radio X,Presenter,
+Emily Clarke,emily@nme.com,NME,Music Editor,+44 7700 900003
+Press Office,press@amazingradio.com,Amazing Radio,,
+Invalid Contact,not-an-email,Some Outlet,Role,
+No Email Contact,,Independent,Freelancer,+44 7700 900005
+Typo Domain,user@gmial.com,Test Outlet,DJ,
+Role Based,info@testoutlet.co.uk,Test Outlet,General,
