@@ -94,12 +94,6 @@ describe('validateEmail', () => {
     expect(result.roleBased).toBe(true);
   });
 
-  it('rejects placeholder domain', async () => {
-    const result = await validateEmail('test@placeholder.tap', { mxCache: makeMxCache() });
-
-    expect(result.valid).toBe(false);
-    expect(result.reason).toBe('placeholder');
-  });
 });
 
 describe('validateEmailBatch', () => {

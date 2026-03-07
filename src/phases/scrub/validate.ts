@@ -88,7 +88,7 @@ function isAllowlistedTLD(domain: string, musicTLDs: string[]): boolean {
 }
 
 async function probeBlanketReject(domain: string, smtpTimeout: number): Promise<boolean> {
-  const fakeLocal = `scrub-probe-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  const fakeLocal = `sink-probe-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
   const fakeEmail = `${fakeLocal}@${domain}`;
 
   try {
@@ -162,16 +162,6 @@ export async function validateEmail(
       corrected: corrected || undefined,
       original,
       suggested,
-    };
-  }
-
-  // Placeholder domain check
-  if (domain === 'placeholder.tap') {
-    return {
-      valid: false,
-      normalised: workingEmail,
-      reason: 'placeholder',
-      confidence: 'none',
     };
   }
 
