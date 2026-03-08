@@ -1,4 +1,4 @@
-# sink-cli full pipeline demo — 25s, macOS chrome, cyan background
+# sink-cli full workflow demo — macOS chrome, cyan background
 # Render: cd /Users/chrisschofield/workspace/active/sink-cli && vhs video/demo-full.tape
 
 Output video/out/sink-full.gif
@@ -8,7 +8,7 @@ Set Shell "bash"
 Set FontFamily "Menlo"
 Set FontSize 18
 Set Width 840
-Set Height 520
+Set Height 680
 Set TypingSpeed 80ms
 Set Theme "Catppuccin Mocha"
 Set Padding 20
@@ -30,41 +30,39 @@ Enter
 Sleep 1s
 Show
 
-# ── Show messy CSV ─────────────────────────────────────────────────
+# ── Scene 1: Interactive menu (logo + options) ────────────────────
+Type "sink"
+Sleep 300ms
+Enter
+Sleep 3s
+
+# Exit the interactive menu
+Ctrl+C
+Sleep 500ms
+
+# ── Scene 2: Show messy CSV ───────────────────────────────────────
 Type "cat contacts.csv"
 Sleep 300ms
 Enter
 Sleep 2.5s
 
-# ── Scrub ──────────────────────────────────────────────────────────
+# ── Scene 3: Scrub (output flows naturally) ───────────────────────
 Type "sink scrub contacts.csv -o scrubbed.csv"
 Sleep 300ms
 Enter
 Sleep 4s
 
-# ── Clear + Rinse ─────────────────────────────────────────────────
-Hide
-Type "clear"
-Enter
-Sleep 200ms
-Show
-
+# ── Scene 4: Rinse (follows scrub output) ─────────────────────────
 Type "sink rinse scrubbed.csv -o clean.csv"
 Sleep 300ms
 Enter
 Sleep 4s
 
-# ── Clear + Inspect ────────────────────────────────────────────────
-Hide
-Type "clear"
-Enter
-Sleep 200ms
-Show
-
+# ── Scene 5: Inspect (follows rinse output) ───────────────────────
 Type "sink inspect clean.csv"
 Sleep 300ms
 Enter
 Sleep 4s
 
-# ── Hold on result ─────────────────────────────────────────────────
+# ── Hold on final result ──────────────────────────────────────────
 Sleep 3s
