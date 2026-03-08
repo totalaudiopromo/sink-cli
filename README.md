@@ -12,8 +12,17 @@
 **Data hygiene for music PR.** Scrub, rinse, and soak your contact lists.
 
 <p align="center">
-  <img src="video/out/sink-quick.gif" alt="sink-cli demo" width="720" />
+  <img src="video/out/sink-quick.gif" alt="sink-cli quick demo" width="720" />
 </p>
+
+> _Demo uses fictional contacts for illustration._
+
+<details>
+<summary>Full workflow demo (scrub, rinse, inspect)</summary>
+<p align="center">
+  <img src="video/out/sink-full.gif" alt="sink-cli full workflow demo" width="720" />
+</p>
+</details>
 
 ---
 

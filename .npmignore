@@ -1,0 +1,16 @@
+src/
+test/
+video/
+.github/
+.env*
+*.tape
+*.tsbuildinfo
+sink.config.*
+NEXT_SESSION.md
+CONTRIBUTING.md
+CHANGELOG.md
+.prettierrc
+eslint.config.js
+vitest.config.ts
+tsconfig.json
+.DS_Store

@@ -9,8 +9,10 @@ sink.config.js
 sink.config.json
 NEXT_SESSION.md
 package-lock.json
-contacts.csv
+/contacts.csv
 contacts-clean.csv
+scrubbed.csv
+clean.csv
 video/node_modules/
 video/out/
 .DS_Store
