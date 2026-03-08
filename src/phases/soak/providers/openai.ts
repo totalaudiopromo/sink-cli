@@ -55,30 +55,6 @@ export class OpenAIProvider implements SoakProvider {
     }
   }
 
-  async enrichBatch(
-    records: SinkRecord[],
-    onProgress?: (i: number) => void,
-  ): Promise<SoakResult[]> {
-    const results: SoakResult[] = []
-    for (let i = 0; i < records.length; i++) {
-      try {
-        const result = await this.enrich(records[i])
-        results.push(result)
-      } catch (err) {
-        results.push({
-          provider: 'openai',
-          confidence: 'low',
-          reasoning: err instanceof Error ? err.message : 'Enrichment failed',
-        })
-      }
-      onProgress?.(i + 1)
-      if (i < records.length - 1) {
-        await new Promise((resolve) => setTimeout(resolve, 200))
-      }
-    }
-    return results
-  }
-
   async dispose(): Promise<void> {
     this.client = null
   }

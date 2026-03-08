@@ -4,6 +4,12 @@ import type { SinkStats } from '../types.js'
 
 // ── Glyphs ──────────────────────────────────────────────────────────
 const DIAMOND = chalk.cyan('\u25C7')
+
+export const LOGO_LINES = [
+  '     ___ (_)__  / /__',
+  "    (_-</ / _ \\/  '_/",
+  '   /___/_/_//_/_/\\_\\',
+]
 const CHECK = chalk.green('\u2713')
 const CROSS = chalk.red('\u2717')
 const TILDE = chalk.yellow('~')
@@ -13,8 +19,6 @@ function num(n: number): string {
 }
 
 // ── Exports ──────────────────────────────────────────────────────────
-
-const LOGO_LINES = ['     ___ (_)__  / /__', "    (_-</ / _ \\/  '_/", '   /___/_/_//_/_/\\_\\']
 
 export function intro(version: string): void {
   console.log('')

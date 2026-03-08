@@ -1,12 +1,12 @@
-import type { SinkRecord, SinkConfig, PhaseProgress } from '../../types.js';
-import { getProvider } from './registry.js';
-import { SoakConfigError } from './provider.js';
+import type { SinkRecord, SinkConfig, PhaseProgress } from '../../types.js'
+import { getProvider } from './registry.js'
+import { SoakConfigError } from './provider.js'
 
 function markSoakPhase(records: SinkRecord[]): SinkRecord[] {
-  return records.map(r => ({
+  return records.map((r) => ({
     ...r,
     phases: r.phases.includes('soak') ? r.phases : [...r.phases, 'soak' as const],
-  }));
+  }))
 }
 
 async function withRetry<T>(
@@ -14,60 +14,61 @@ async function withRetry<T>(
   maxRetries: number,
   baseDelay: number,
 ): Promise<T> {
-  let lastError: unknown;
+  let lastError: unknown
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      return await fn();
+      return await fn()
     } catch (err) {
-      lastError = err;
+      lastError = err
       if (attempt < maxRetries) {
-        const delay = baseDelay * Math.pow(2, attempt);
-        await new Promise(resolve => setTimeout(resolve, delay));
+        const delay = baseDelay * Math.pow(2, attempt)
+        await new Promise((resolve) => setTimeout(resolve, delay))
       }
     }
   }
-  throw lastError;
+  throw lastError
 }
 
 export async function soak(
   records: SinkRecord[],
   config: SinkConfig,
-  onProgress?: (progress: PhaseProgress) => void
+  onProgress?: (progress: PhaseProgress) => void,
 ): Promise<SinkRecord[]> {
-  const providerName = config.soak.provider;
-  const provider = await getProvider(providerName);
-  const rateLimit = config.soak.rateLimit ?? 200;
-  const maxRetries = config.soak.maxRetries ?? 3;
+  const providerName = config.soak.provider
+  const provider = await getProvider(providerName)
+  const rateLimit = config.soak.rateLimit ?? 200
+  const maxRetries = config.soak.maxRetries ?? 3
 
-  const providerConfig = (config.soak[providerName] as Record<string, unknown>) ?? {};
+  const providerConfig = (config.soak[providerName] as Record<string, unknown>) ?? {}
   try {
-    await provider.init(providerConfig);
+    await provider.init(providerConfig)
   } catch (err) {
     if (err instanceof SoakConfigError) {
-      console.warn(`  Skipping soak: ${err.message}`);
-      return records;
+      console.warn(`  Skipping soak: ${err.message}`)
+      return records
     }
-    throw err;
+    throw err
   }
 
-  const enrichable: { index: number; record: SinkRecord }[] = [];
+  const enrichable: { index: number; record: SinkRecord }[] = []
   for (let i = 0; i < records.length; i++) {
-    const r = records[i];
-    const hasValidEmail = r.scrub ? r.scrub.email.valid : Boolean(r.raw.email);
-    const isDuplicate = r.rinse?.duplicate ?? false;
+    const r = records[i]
+    const hasValidEmail = r.scrub ? r.scrub.email.valid : Boolean(r.raw.email)
+    const isDuplicate = r.rinse?.duplicate ?? false
     if (hasValidEmail && !isDuplicate) {
-      enrichable.push({ index: i, record: r });
+      enrichable.push({ index: i, record: r })
     }
   }
 
-  const result = [...records];
-  let failed = 0;
+  const result = [...records]
+  let failed = 0
 
   // Use ora for progress if available
-  let spinner: { text: string; succeed: (t: string) => void; fail: (t: string) => void } | null = null;
+  let spinner: { text: string; succeed: (t: string) => void; fail: (t: string) => void } | null =
+    null
   try {
-    const ora = (await import('ora')).default;
-    spinner = ora({ text: `Enriching 0/${enrichable.length} contacts...`, spinner: 'dots' }).start();
+    const ora = (await import('ora')).default
+    spinner = ora({ text: `Enriching 0/${enrichable.length} contacts...`, spinner: 'dots' }).start()
   } catch {
     // ora not available, fall back to progress callback only
   }
@@ -77,16 +78,16 @@ export async function soak(
       const soakResult = await withRetry(
         () => provider.enrich(enrichable[i].record),
         maxRetries,
-        rateLimit,
-      );
+        1000,
+      )
       result[enrichable[i].index] = {
         ...result[enrichable[i].index],
         soak: soakResult,
-      };
+      }
     } catch (err) {
-      failed++;
-      const reason = err instanceof Error ? err.message : 'Enrichment failed';
-      console.warn(`  Warning: enrichment failed for ${enrichable[i].record.raw.name}: ${reason}`);
+      failed++
+      const reason = err instanceof Error ? err.message : 'Enrichment failed'
+      console.warn(`  Warning: enrichment failed for ${enrichable[i].record.raw.name}: ${reason}`)
       result[enrichable[i].index] = {
         ...result[enrichable[i].index],
         soak: {
@@ -94,34 +95,36 @@ export async function soak(
           confidence: 'none',
           reasoning: reason,
         },
-      };
+      }
     }
 
     if (spinner) {
-      spinner.text = `Enriching ${i + 1}/${enrichable.length} contacts...`;
+      spinner.text = `Enriching ${i + 1}/${enrichable.length} contacts...`
     }
     onProgress?.({
       phase: 'soak',
       current: i + 1,
       total: enrichable.length,
       record: enrichable[i].record,
-    });
+    })
 
     // Rate limit between requests
     if (i < enrichable.length - 1) {
-      await new Promise(resolve => setTimeout(resolve, rateLimit));
+      await new Promise((resolve) => setTimeout(resolve, rateLimit))
     }
   }
 
   if (spinner) {
     if (failed > 0) {
-      spinner.fail(`Enriched ${enrichable.length - failed}/${enrichable.length} contacts (${failed} failed)`);
+      spinner.fail(
+        `Enriched ${enrichable.length - failed}/${enrichable.length} contacts (${failed} failed)`,
+      )
     } else {
-      spinner.succeed(`Enriched ${enrichable.length} contacts`);
+      spinner.succeed(`Enriched ${enrichable.length} contacts`)
     }
   }
 
-  await provider.dispose?.();
+  await provider.dispose?.()
 
-  return markSoakPhase(result);
+  return markSoakPhase(result)
 }

@@ -54,31 +54,6 @@ export class AnthropicProvider implements SoakProvider {
     }
   }
 
-  async enrichBatch(
-    records: SinkRecord[],
-    onProgress?: (i: number) => void,
-  ): Promise<SoakResult[]> {
-    const results: SoakResult[] = []
-    for (let i = 0; i < records.length; i++) {
-      try {
-        const result = await this.enrich(records[i])
-        results.push(result)
-      } catch (err) {
-        results.push({
-          provider: 'anthropic',
-          confidence: 'low',
-          reasoning: err instanceof Error ? err.message : 'Enrichment failed',
-        })
-      }
-      onProgress?.(i + 1)
-      // Simple rate limiting -- 200ms between requests
-      if (i < records.length - 1) {
-        await new Promise((resolve) => setTimeout(resolve, 200))
-      }
-    }
-    return results
-  }
-
   async dispose(): Promise<void> {
     this.client = null
   }
