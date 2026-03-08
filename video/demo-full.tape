@@ -1,4 +1,4 @@
-# sink-cli full pipeline demo — 25s, macOS chrome, cyan background, 1080p 60fps
+# sink-cli full pipeline demo — 25s, macOS chrome, cyan background
 # Render: cd /Users/chrisschofield/workspace/active/sink-cli && vhs video/demo-full.tape
 
 Output video/out/sink-full.gif
@@ -6,16 +6,16 @@ Output video/out/sink-full.mp4
 
 Set Shell "bash"
 Set FontFamily "Menlo"
-Set FontSize 16
-Set Width 1920
-Set Height 1080
+Set FontSize 18
+Set Width 840
+Set Height 520
 Set TypingSpeed 80ms
 Set Theme "Catppuccin Mocha"
-Set Padding 30
-Set Framerate 60
+Set Padding 20
+Set Framerate 30
 Set PlaybackSpeed 1
 Set WindowBar Colorful
-Set Margin 30
+Set Margin 40
 Set MarginFill "#06b6d4"
 Set BorderRadius 12
 
