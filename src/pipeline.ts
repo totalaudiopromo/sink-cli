@@ -95,11 +95,10 @@ function computeStats(records: SinkRecord[], durationMs: number): SinkStats {
       if (record.rinse.matchType === 'fuzzy-name') stats.rinse.fuzzyMatches++;
     }
 
-    if (record.soak) {
-      stats.soak.enriched++;
-    } else if (record.phases.includes('soak')) {
-      // Soak phase ran but no result -- either failed or skipped
-      if (record.scrub?.email.valid === false || record.rinse?.duplicate) {
+    if (record.phases.includes('soak')) {
+      if (record.soak && record.soak.confidence !== 'none') {
+        stats.soak.enriched++;
+      } else if (record.scrub?.email.valid === false || record.rinse?.duplicate) {
         stats.soak.skipped++;
       } else {
         stats.soak.failed++;

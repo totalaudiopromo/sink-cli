@@ -21,18 +21,60 @@ import {
 } from './ui/format.js';
 import type { SinkRecord, SinkConfig, Phase } from './types.js';
 
+// Load .env if present (works on Node 20+, no dependencies)
+try {
+  const envContents = readFileSync(resolve('.env'), 'utf-8');
+  for (const line of envContents.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eqIdx = trimmed.indexOf('=');
+    if (eqIdx === -1) continue;
+    const key = trimmed.slice(0, eqIdx).trim();
+    const value = trimmed.slice(eqIdx + 1).trim().replace(/^["']|["']$/g, '');
+    if (!process.env[key]) process.env[key] = value;
+  }
+} catch { /* .env file not found, using process.env */ }
+
 const VERSION = '0.1.0';
+
+const LOGO_LINES = [
+  '     ___ (_)__  / /__',
+  "    (_-</ / _ \\/  '_/",
+  '   /___/_/_//_/_/\\_\\',
+];
+
+// Exit codes
+const EXIT = {
+  FILE_ERROR: 1,
+  PARSE_ERROR: 2,
+  CONFIG_ERROR: 3,
+  PIPELINE_ERROR: 4,
+} as const;
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
+/** Strip surrounding quotes and trailing whitespace (handles Finder drag-and-drop paths) */
+function cleanPath(filePath: string): string {
+  return filePath.trim().replace(/^["']|["']$/g, '');
+}
+
 function readFile(filePath: string): string {
   try {
     return readFileSync(resolve(filePath), 'utf-8');
-  } catch {
-    console.error(chalk.red(`  Error: cannot read file: ${filePath}`));
-    process.exit(1);
+  } catch (err: unknown) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT') {
+      console.error(chalk.red(`\n  File not found: ${filePath}`));
+      console.error(chalk.dim('  Check the path and try again.\n'));
+    } else if (code === 'EISDIR') {
+      console.error(chalk.red(`\n  That's a directory, not a file: ${filePath}`));
+      console.error(chalk.dim('  Pass a CSV file path instead.\n'));
+    } else {
+      console.error(chalk.red(`\n  Cannot read file: ${filePath}`));
+    }
+    process.exit(EXIT.FILE_ERROR);
   }
 }
 
@@ -50,7 +92,12 @@ async function parseInputFile(filePath: string): Promise<SinkRecord[]> {
 
   if (errors.length > 0 && contacts.length === 0) {
     console.error(chalk.red('  Parse error: ' + errors[0]));
-    process.exit(1);
+    process.exit(EXIT.PARSE_ERROR);
+  }
+
+  // Show non-fatal warnings
+  for (const err of errors) {
+    console.warn(chalk.yellow(`  ${err}`));
   }
 
   return contacts.map((raw) => ({
@@ -81,7 +128,7 @@ function writeOutput(records: SinkRecord[], outPath: string, format: string): vo
 // ---------------------------------------------------------------------------
 
 async function runPhases(
-  filePath: string,
+  rawPath: string,
   phases: Phase[],
   opts: {
     output?: string;
@@ -89,12 +136,14 @@ async function runPhases(
     config?: string;
     dryRun?: boolean;
     verbose?: boolean;
+    quiet?: boolean;
     json?: boolean;
     noColour?: boolean;
     smtp?: boolean;
     provider?: string;
   }
 ): Promise<void> {
+  const filePath = cleanPath(rawPath);
   const startTime = Date.now();
 
   if (opts.noColour) chalk.level = 0;
@@ -111,7 +160,9 @@ async function runPhases(
     } as Partial<SinkConfig>,
   });
 
-  if (!opts.json) {
+  const silent = opts.json || opts.quiet;
+
+  if (!silent) {
     intro(VERSION);
     step(`Processing ${chalk.bold(basename(filePath))} through ${phases.join(chalk.dim(' → '))}`);
     blank();
@@ -119,7 +170,7 @@ async function runPhases(
 
   const records = await parseInputFile(filePath);
 
-  if (!opts.json) {
+  if (!silent) {
     stepComplete(`${records.length.toLocaleString('en-GB')} contacts parsed`);
     blank();
   }
@@ -128,7 +179,7 @@ async function runPhases(
     phases,
     config,
     onProgress: (phase, progress) => {
-      if (!opts.json && opts.verbose) {
+      if (!silent && opts.verbose) {
         step(chalk.dim(`${phase}: ${progress.current}/${progress.total} ${progress.message ?? ''}`));
       }
     },
@@ -139,39 +190,43 @@ async function runPhases(
     return;
   }
 
-  divider();
-  blank();
+  if (!silent) {
+    divider();
+    blank();
 
-  const parts = [
-    chalk.green(`${stats.scrub.valid} valid`),
-    chalk.red(`${stats.scrub.invalid} invalid`),
-    chalk.yellow(`${stats.scrub.risky} risky`),
-  ];
-  step(parts.join(chalk.dim('  ·  ')));
+    const parts = [
+      chalk.green(`${stats.scrub.valid} valid`),
+      chalk.red(`${stats.scrub.invalid} invalid`),
+      chalk.yellow(`${stats.scrub.risky} risky`),
+    ];
+    step(parts.join(chalk.dim('  ·  ')));
 
-  const secondary = [`${stats.scrub.typos} typos fixed`, `${stats.scrub.domains} domains`];
-  if (phases.includes('rinse')) secondary.push(`${stats.rinse.duplicates} duplicates`);
-  if (phases.includes('soak')) secondary.push(`${stats.soak.enriched} enriched`);
-  step(chalk.dim(secondary.join('  ·  ')));
-  blank();
+    const secondary = [`${stats.scrub.typos} typos fixed`, `${stats.scrub.domains} domains`];
+    if (phases.includes('rinse')) secondary.push(`${stats.rinse.duplicates} duplicates`);
+    if (phases.includes('soak')) secondary.push(`${stats.soak.enriched} enriched`);
+    step(chalk.dim(secondary.join('  ·  ')));
+    blank();
+  }
 
   const format = opts.format ?? 'csv';
   const outPath = opts.output ?? deriveOutputPath(filePath, '-clean', format);
 
   if (!opts.dryRun) {
     writeOutput(processed, outPath, format);
-    showOutputPath(outPath);
-  } else {
+    if (!silent) showOutputPath(outPath);
+  } else if (!silent) {
     step(chalk.dim('Dry run — no files written.'));
   }
 
-  blank();
-  outro(Date.now() - startTime);
+  if (!silent) {
+    blank();
+    outro(Date.now() - startTime);
+  }
 }
 
-async function runVerify(email: string): Promise<void> {
+async function runSpot(email: string): Promise<void> {
   intro(VERSION);
-  step(`Verifying ${chalk.bold(email)}...`);
+  step(`Checking ${chalk.bold(email)}...`);
   blank();
 
   const { validateEmail } = await import('./phases/scrub/validate.js');
@@ -196,7 +251,8 @@ async function runVerify(email: string): Promise<void> {
   outro(0);
 }
 
-async function runFileStats(filePath: string): Promise<void> {
+async function runInspect(rawPath: string): Promise<void> {
+  const filePath = cleanPath(rawPath);
   intro(VERSION);
 
   const records = await parseInputFile(filePath);
@@ -224,9 +280,10 @@ async function runFileStats(filePath: string): Promise<void> {
 }
 
 async function runTui(
-  filePath: string,
+  rawPath: string,
   opts: { smtp?: boolean; provider?: string; config?: string }
 ): Promise<void> {
+  const filePath = cleanPath(rawPath);
   const config = await loadConfig({ configPath: opts.config });
   if (opts.smtp) config.scrub.smtp = true;
   if (opts.provider) config.soak.provider = opts.provider;
@@ -238,9 +295,10 @@ async function runTui(
 }
 
 async function runDrain(
-  filePath: string,
+  rawPath: string,
   opts: { output?: string; format?: string }
 ): Promise<void> {
+  const filePath = cleanPath(rawPath);
   const { drain } = await import('./output/drain.js');
   const format = opts.format ?? 'csv';
   const outPath = opts.output ?? deriveOutputPath(filePath, '-converted', format);
@@ -259,8 +317,32 @@ async function runDrain(
 
 program
   .name('sink')
-  .version(VERSION)
-  .description('Data hygiene for music PR.\nScrub. Rinse. Soak. Clean contact lists.');
+  .version(VERSION, '-v, --version')
+  .configureOutput({
+    writeOut: (str) => {
+      if (str.trim() === VERSION) {
+        console.log('');
+        console.log(chalk.cyan(LOGO_LINES[0]));
+        console.log(`${chalk.cyan(LOGO_LINES[1])}   ${chalk.dim(`v${VERSION}`)}`);
+        console.log(chalk.cyan(LOGO_LINES[2]));
+        console.log('');
+      } else {
+        process.stdout.write(str);
+      }
+    },
+  })
+  .description('Data hygiene for music PR.\nScrub. Rinse. Soak. Clean contact lists.')
+  .addHelpText(
+    'after',
+    `
+Examples:
+  ${chalk.dim('$')} sink scrub contacts.csv              Validate emails
+  ${chalk.dim('$')} sink scrub contacts.csv --smtp        Validate with SMTP check
+  ${chalk.dim('$')} sink wash contacts.csv --dry-run      Full pipeline, preview only
+  ${chalk.dim('$')} sink spot sarah@bbc.co.uk             Check a single email
+  ${chalk.dim('$')} sink inspect contacts.csv             Data quality score
+`
+  );
 
 const globalOpts = (cmd: typeof program) =>
   cmd
@@ -269,6 +351,7 @@ const globalOpts = (cmd: typeof program) =>
     .option('--config <path>', 'config file path')
     .option('--dry-run', 'preview without writing files')
     .option('--verbose', 'detailed output')
+    .option('-q, --quiet', 'suppress all output except errors')
     .option('--json', 'JSON stdout (for piping)')
     .option('--no-colour', 'disable colours')
     .option('--smtp', 'enable SMTP verification')
@@ -306,14 +389,14 @@ program
   .action(runDrain);
 
 program
-  .command('verify <email>')
-  .description('Verify a single email address (with SMTP check)')
-  .action(runVerify);
+  .command('spot <email>')
+  .description('Spot-check a single email address (with SMTP check)')
+  .action(runSpot);
 
 program
-  .command('stats <file>')
-  .description('Show data quality score without cleaning')
-  .action(runFileStats);
+  .command('inspect <file>')
+  .description('Inspect data quality score without cleaning')
+  .action(runInspect);
 
 program
   .command('tui <file>')
@@ -327,6 +410,11 @@ program.action(async () => {
   try {
     const { runInteractive } = await import('./ui/interactive.js');
     const result = await runInteractive();
+
+    if (result.command === 'spot') {
+      await runSpot(result.options?.email as string);
+      return;
+    }
 
     if (result.file) {
       const phases: Phase[] = [];
@@ -346,8 +434,8 @@ program.action(async () => {
         case 'drain':
           await runDrain(result.file, { format: (result.options?.format as string) ?? 'csv' });
           return;
-        case 'stats':
-          await runFileStats(result.file);
+        case 'inspect':
+          await runInspect(result.file);
           return;
       }
 
@@ -363,4 +451,11 @@ program.action(async () => {
   }
 });
 
-program.parse();
+program.parseAsync().catch((err: unknown) => {
+  if (err instanceof Error) {
+    console.error(chalk.red(`\n  ${err.message}\n`));
+  } else {
+    console.error(chalk.red('\n  An unexpected error occurred.\n'));
+  }
+  process.exit(EXIT.PIPELINE_ERROR);
+});

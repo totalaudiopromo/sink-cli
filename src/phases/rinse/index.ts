@@ -5,13 +5,9 @@ import type {
 } from '../../types.js';
 import { exactDedup } from './exact-dedup.js';
 import { fuzzyMatch } from './fuzzy-match.js';
-import { domainCluster, crossFieldMatch } from './identity.js';
+import { crossFieldMatch } from './identity.js';
 
-type Strategy =
-  | 'exact-email'
-  | 'fuzzy-name'
-  | 'domain-cluster'
-  | 'cross-field';
+type Strategy = 'exact-email' | 'fuzzy-name' | 'cross-field';
 
 const strategyRunners: Record<
   Strategy,
@@ -20,7 +16,6 @@ const strategyRunners: Record<
   'exact-email': (records) => exactDedup(records),
   'fuzzy-name': (records, config) =>
     fuzzyMatch(records, config.rinse.fuzzyThreshold),
-  'domain-cluster': (records) => domainCluster(records),
   'cross-field': (records) => crossFieldMatch(records),
 };
 
@@ -29,12 +24,11 @@ export async function rinse(
   config: SinkConfig,
   onProgress?: (progress: PhaseProgress) => void,
 ): Promise<SinkRecord[]> {
-  const strategies = config.rinse.strategies ?? [
+  const strategies = (config.rinse.strategies ?? [
     'exact-email',
     'fuzzy-name',
-    'domain-cluster',
     'cross-field',
-  ];
+  ]).filter((s): s is Strategy => s in strategyRunners);
   let current = records;
 
   for (let i = 0; i < strategies.length; i++) {

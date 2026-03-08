@@ -1,0 +1,23 @@
+{
+  "name": "sink-cli-promo-video",
+  "version": "1.0.0",
+  "description": "sink-cli promo video — Remotion composition",
+  "private": true,
+  "scripts": {
+    "studio": "remotion studio src/index.tsx",
+    "render": "remotion render src/index.tsx SinkPromo out/sink-promo.mp4"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0",
+    "@remotion/google-fonts": "^4.0",
+    "@remotion/renderer": "^4.0",
+    "remotion": "^4.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "react": "^18",
+    "react-dom": "^18",
+    "typescript": "^5"
+  }
+}

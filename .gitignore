@@ -5,3 +5,12 @@ dist/
 .env
 .env.local
 sink.config.ts
+sink.config.js
+sink.config.json
+NEXT_SESSION.md
+package-lock.json
+contacts.csv
+contacts-clean.csv
+video/node_modules/
+video/out/
+.DS_Store

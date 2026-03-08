@@ -1,35 +1,46 @@
 /**
- * Interactive mode using @clack/prompts.
- * Mole-style guided flow when user runs bare `sink` with no args.
+ * Interactive mode -- Mole-inspired CLI menu.
+ * Launches when user runs bare `sink` with no args.
  */
 
 import * as p from '@clack/prompts';
 import chalk from 'chalk';
+
+const LOGO_LINES = [
+  '     ___ (_)__  / /__',
+  "    (_-</ / _ \\/  '_/",
+  '   /___/_/_//_/_/\\_\\',
+];
+
+function getLogo(): string {
+  return [
+    '',
+    chalk.cyan(LOGO_LINES[0]),
+    `${chalk.cyan(LOGO_LINES[1])}   ${chalk.dim('github.com/totalaudiopromo/sink-cli')}`,
+    `${chalk.cyan(LOGO_LINES[2])}   ${chalk.dim('Data hygiene for music PR.')}`,
+    '',
+  ].join('\n');
+}
+
+const VERSION = '0.1.0';
 
 export async function runInteractive(): Promise<{
   command: string;
   file?: string;
   options?: Record<string, unknown>;
 }> {
-  // Box-drawn header
-  console.log('');
-  console.log(chalk.cyan('  \u256D\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256E'));
-  console.log(chalk.cyan('  \u2502') + '                                     ' + chalk.cyan('\u2502'));
-  console.log(chalk.cyan('  \u2502') + chalk.bold('   sink') + chalk.dim('  data hygiene for music PR') + '   ' + chalk.cyan('\u2502'));
-  console.log(chalk.cyan('  \u2502') + '                                     ' + chalk.cyan('\u2502'));
-  console.log(chalk.cyan('  \u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256F'));
-  console.log('');
+  console.log(getLogo());
 
   const command = await p.select({
-    message: 'What would you like to do?',
+    message: chalk.bold('What would you like to do?'),
     options: [
-      { value: 'wash', label: 'Wash', hint: 'Full pipeline (scrub \u2192 rinse \u2192 soak)' },
-      { value: 'scrub', label: 'Scrub', hint: 'Clean & validate emails' },
-      { value: 'rinse', label: 'Rinse', hint: 'De-duplicate contacts' },
-      { value: 'soak', label: 'Soak', hint: 'Enrich with AI' },
-      { value: 'drain', label: 'Drain', hint: 'Export / convert formats' },
-      { value: 'stats', label: 'Stats', hint: 'Data quality score' },
-      { value: 'about', label: 'About', hint: 'Version & credits' },
+      { value: 'wash',    label: `${chalk.bold('Wash')}       ${chalk.dim('Full pipeline (scrub > rinse > soak)')}` },
+      { value: 'scrub',   label: `${chalk.bold('Scrub')}      ${chalk.dim('Clean & validate emails')}` },
+      { value: 'rinse',   label: `${chalk.bold('Rinse')}      ${chalk.dim('De-duplicate contacts')}` },
+      { value: 'soak',    label: `${chalk.bold('Soak')}       ${chalk.dim('Enrich with AI')}` },
+      { value: 'drain',   label: `${chalk.bold('Drain')}      ${chalk.dim('Export / convert formats')}` },
+      { value: 'inspect', label: `${chalk.bold('Inspect')}    ${chalk.dim('Data quality score')}` },
+      { value: 'spot',    label: `${chalk.bold('Spot')}       ${chalk.dim('Check a single email')}` },
     ],
   });
 
@@ -38,12 +49,17 @@ export async function runInteractive(): Promise<{
     process.exit(0);
   }
 
-  if (command === 'about') {
-    p.note(
-      'sink-cli v0.1.0\nMIT License\nhttps://github.com/totalaudiopromo/sink-cli',
-      'About',
-    );
-    process.exit(0);
+  // Spot check doesn't need a file -- prompt for email instead
+  if (command === 'spot') {
+    const email = await p.text({
+      message: 'Email address to check:',
+      placeholder: 'sarah@bbc.co.uk',
+    });
+    if (p.isCancel(email)) {
+      p.cancel('Cancelled.');
+      process.exit(0);
+    }
+    return { command: 'spot', options: { email } };
   }
 
   // File picker
@@ -58,7 +74,7 @@ export async function runInteractive(): Promise<{
   let filePath: string;
   if (csvFiles.length > 0) {
     const options = csvFiles.map(f => ({ value: f, label: f }));
-    options.push({ value: '__custom__', label: 'Enter path manually...' });
+    options.push({ value: '__custom__', label: chalk.dim('Enter path manually...') });
 
     const selected = await p.select({
       message: 'Which CSV file?',
@@ -125,6 +141,10 @@ export async function runInteractive(): Promise<{
       opts.provider = provider === 'skip' ? undefined : provider;
     }
   }
+
+  console.log('');
+  console.log(chalk.dim(`  v${VERSION}  |  Enter  |  Ctrl+C Quit`));
+  console.log('');
 
   return { command: command as string, file: filePath, options: opts };
 }

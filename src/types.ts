@@ -57,7 +57,7 @@ export interface SoakResult {
   submissionGuidelines?: string;
   pitchTips?: string[];
   geographicScope?: 'national' | 'regional' | 'local';
-  confidence: 'high' | 'medium' | 'low';
+  confidence: 'high' | 'medium' | 'low' | 'none';
   reasoning?: string;
 }
 
@@ -132,15 +132,12 @@ export interface SinkConfig {
   };
   rinse: {
     fuzzyThreshold?: number;
-    strategies?: (
-      | 'exact-email'
-      | 'fuzzy-name'
-      | 'domain-cluster'
-      | 'cross-field'
-    )[];
+    strategies?: ('exact-email' | 'fuzzy-name' | 'cross-field')[];
   };
   soak: {
     provider: string;
+    rateLimit?: number;
+    maxRetries?: number;
     [providerName: string]: unknown;
   };
   output: {

@@ -7,9 +7,12 @@
 
 import type { RawRecord } from '../../types.js';
 
-const NAME_HEADERS = ['name', 'contact', 'contact name', 'full name', 'person'];
-const FIRST_NAME_HEADERS = ['first name', 'firstname', 'first'];
-const LAST_NAME_HEADERS = ['last name', 'lastname', 'last', 'surname'];
+const NAME_HEADERS = [
+  'name', 'contact', 'contact name', 'full name', 'person',
+  'artist', 'band', 'act', 'label', 'label name', 'sender', 'from',
+];
+const FIRST_NAME_HEADERS = ['first name', 'firstname', 'first', 'given name'];
+const LAST_NAME_HEADERS = ['last name', 'lastname', 'last', 'surname', 'family name'];
 const OUTLET_HEADERS = [
   'outlet',
   'publication',
@@ -18,13 +21,15 @@ const OUTLET_HEADERS = [
   'organisation',
   'organization',
   'station',
+  'platform',
+  'source',
 ];
-const EMAIL_HEADERS = ['email', 'e mail', 'email address'];
-const ROLE_HEADERS = ['role', 'title', 'position', 'job title'];
-const PHONE_HEADERS = ['phone', 'phone number', 'telephone', 'mobile'];
-const WEBSITE_HEADERS = ['website', 'url', 'web'];
-const NOTES_HEADERS = ['notes', 'comments', 'description'];
-const TAGS_HEADERS = ['tags', 'categories', 'labels'];
+const EMAIL_HEADERS = ['email', 'e mail', 'email address', 'e-mail', 'contact email'];
+const ROLE_HEADERS = ['role', 'title', 'position', 'job title', 'job'];
+const PHONE_HEADERS = ['phone', 'phone number', 'telephone', 'mobile', 'tel', 'cell'];
+const WEBSITE_HEADERS = ['website', 'url', 'web', 'site', 'link'];
+const NOTES_HEADERS = ['notes', 'comments', 'description', 'bio', 'about'];
+const TAGS_HEADERS = ['tags', 'categories', 'labels', 'genres', 'genre'];
 
 function normalise(header: string): string {
   return header.trim().toLowerCase().replace(/[_-]/g, ' ');
@@ -155,8 +160,7 @@ export function parseCSV(text: string): {
   const hasNameParts = firstNameCol !== -1 || lastNameCol !== -1;
 
   if (!hasNameCol && !hasNameParts) {
-    errors.push(`Could not find a name column. Expected one of: ${NAME_HEADERS.join(', ')}`);
-    return { contacts: [], headers, errors };
+    errors.push(`No name column found -- names will be derived from email or left as "Unknown".`);
   }
 
   // Build a set of all mapped column indices so we can collect extras
@@ -183,19 +187,28 @@ export function parseCSV(text: string): {
     // Skip entirely blank rows
     if (cols.every(c => !c)) continue;
 
-    // Resolve name from dedicated column or first/last parts
+    // Resolve name from dedicated column, first/last parts, or email prefix
     let name = '';
     if (hasNameCol) {
       name = cols[nameCol] ?? '';
-    } else {
+    } else if (hasNameParts) {
       const first = firstNameCol !== -1 ? (cols[firstNameCol] ?? '') : '';
       const last = lastNameCol !== -1 ? (cols[lastNameCol] ?? '') : '';
       name = [first, last].filter(Boolean).join(' ');
     }
 
+    // Derive name from email prefix if still empty
+    if (!name && emailCol !== -1 && cols[emailCol]) {
+      const prefix = cols[emailCol].split('@')[0] ?? '';
+      name = prefix
+        .replace(/[._+]/g, ' ')
+        .replace(/\b\w/g, c => c.toUpperCase())
+        .trim();
+    }
+
+    // Last resort
     if (!name) {
-      errors.push(`Row ${i + 1}: missing name, skipped.`);
-      continue;
+      name = 'Unknown';
     }
 
     // Parse tags -- split by comma if the field contains multiple values
