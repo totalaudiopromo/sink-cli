@@ -10,10 +10,12 @@ const DEFAULT_CONFIG: SinkConfig = {
   },
   rinse: {
     fuzzyThreshold: 0.92,
-    strategies: ['exact-email', 'fuzzy-name', 'domain-cluster', 'cross-field'],
+    strategies: ['exact-email', 'fuzzy-name', 'cross-field'],
   },
   soak: {
     provider: 'anthropic',
+    rateLimit: 200,
+    maxRetries: 3,
   },
   output: {
     format: 'csv',

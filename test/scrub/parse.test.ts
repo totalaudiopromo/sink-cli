@@ -55,12 +55,13 @@ describe('parseCSV', () => {
     });
   });
 
-  it('returns error when no name column found', () => {
+  it('derives name from email when no name column found', () => {
     const csv = 'Email,Outlet\nalice@test.com,BBC';
     const { contacts, errors } = parseCSV(csv);
 
-    expect(contacts).toEqual([]);
-    expect(errors[0]).toContain('Could not find a name column');
+    expect(contacts).toHaveLength(1);
+    expect(contacts[0].name).toBe('Alice');
+    expect(errors[0]).toContain('No name column found');
   });
 
   it('joins first and last name columns', () => {
@@ -72,10 +73,10 @@ describe('parseCSV', () => {
   });
 
   it('collects unmapped columns into extras', () => {
-    const csv = 'Name,Email,Genre,Region\nAlice,alice@test.com,Rock,London';
+    const csv = 'Name,Email,Tier,Region\nAlice,alice@test.com,Gold,London';
     const { contacts } = parseCSV(csv);
 
-    expect(contacts[0].extras).toEqual({ Genre: 'Rock', Region: 'London' });
+    expect(contacts[0].extras).toEqual({ Tier: 'Gold', Region: 'London' });
   });
 
   it('skips blank rows', () => {
@@ -85,13 +86,13 @@ describe('parseCSV', () => {
     expect(contacts).toHaveLength(2);
   });
 
-  it('reports missing name in data rows', () => {
+  it('derives name from email when name cell is empty', () => {
     const csv = 'Name,Email\n,alice@test.com\nBob,bob@test.com';
-    const { contacts, errors } = parseCSV(csv);
+    const { contacts } = parseCSV(csv);
 
-    expect(contacts).toHaveLength(1);
-    expect(contacts[0].name).toBe('Bob');
-    expect(errors[0]).toContain('Row 2: missing name');
+    expect(contacts).toHaveLength(2);
+    expect(contacts[0].name).toBe('Alice');
+    expect(contacts[1].name).toBe('Bob');
   });
 
   it('parses tags from comma-separated field', () => {

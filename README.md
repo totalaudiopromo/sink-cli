@@ -1,77 +1,65 @@
-# sink
-
-Data hygiene for music PR. Scrub, rinse, and soak your contact lists.
-
 ```
-sink wash contacts.csv
+     ___ (_)__  / /__
+    (_-</ / _ \/  '_/
+   /___/_/_//_/_/\_\
 ```
 
-Three-phase pipeline for cleaning, deduplicating, and enriching music industry contact data.
+[![npm version](https://img.shields.io/npm/v/sink-cli.svg)](https://www.npmjs.com/package/sink-cli)
+[![CI](https://github.com/totalaudiopromo/sink-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/totalaudiopromo/sink-cli/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg)](https://nodejs.org)
 
-## Install
+**Data hygiene for music PR.** Scrub, rinse, and soak your contact lists.
 
-```bash
-npm install -g sink-cli
-```
+<p align="center">
+  <img src="video/out/sink-quick.gif" alt="sink-cli quick demo" width="720" />
+</p>
 
-Or use without installing:
+> _Demo uses fictional contacts for illustration._
 
-```bash
-npx sink-cli wash contacts.csv
-```
+<details>
+<summary>Full workflow demo (scrub, rinse, inspect)</summary>
+<p align="center">
+  <img src="video/out/sink-full.gif" alt="sink-cli full workflow demo" width="720" />
+</p>
+</details>
+
+---
 
 ## Quick Start
 
 ```bash
-# Full pipeline: clean, dedup, enrich
-sink wash contacts.csv
+npx sink-cli scrub contacts.csv          # validate emails
+npx sink-cli rinse contacts.csv          # deduplicate
+npx sink-cli wash contacts.csv           # full pipeline
+```
 
-# Just validate emails
+Or install globally:
+
+```bash
+npm install -g sink-cli
 sink scrub contacts.csv
-
-# Deduplicate contacts
-sink rinse contacts.csv
-
-# Enrich with AI
-sink soak contacts.csv --provider anthropic
-
-# Check a single email
-sink verify sarah@bbc.co.uk
-
-# Data quality score
-sink stats contacts.csv
-
-# Interactive mode
-sink
 ```
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `sink` | Interactive menu (no args) |
-| `sink wash <file>` | Full pipeline: scrub, rinse, soak |
-| `sink scrub <file>` | Phase 1: syntax cleaning + email validation |
-| `sink rinse <file>` | Phase 2: dedup + identity resolution |
-| `sink soak <file>` | Phase 3: enrichment + metadata hydration |
-| `sink drain <file>` | Export / convert between formats |
-| `sink verify <email>` | Single email check with SMTP |
-| `sink stats <file>` | Data quality score |
-| `sink tui <file>` | Full TUI dashboard |
+| Command               | Description                           |
+| --------------------- | ------------------------------------- |
+| `sink`                | Interactive menu (no args)            |
+| `sink wash <file>`    | Full pipeline: scrub + rinse + soak   |
+| `sink scrub <file>`   | Validate & clean emails               |
+| `sink rinse <file>`   | Deduplicate contacts                  |
+| `sink soak <file>`    | Enrich contacts with AI               |
+| `sink spot <email>`   | Spot-check a single email (with SMTP) |
+| `sink inspect <file>` | Data quality score                    |
+| `sink drain <file>`   | Convert between formats               |
+| `sink tui <file>`     | Full TUI dashboard                    |
 
-## Global Flags
+## Why sink?
 
-```
---output, -o <path>      Output path
---format <csv|json|jsonl> Output format (default: csv)
---config <path>          Config file path
---dry-run                Preview without writing
---verbose                Detailed output
---json                   JSON stdout (for piping)
---no-colour              Disable colours
---smtp                   Enable SMTP verification (scrub phase)
---provider <name>        Soak enrichment provider (anthropic|openai)
-```
+- **Built for music PR.** Knows BBC Radio 1 from Radio X, catches `bbc.com` → `bbc.co.uk` typos, flags role-based emails like `press@`. Not a generic email validator -- it understands your industry.
+- **Zero config.** Point it at a CSV and go. Flexible header matching means it works with whatever your spreadsheet exports. No mapping files, no setup wizard.
+- **Three phases, one metaphor.** Scrub cleans. Rinse deduplicates. Soak enriches. Run them individually or all at once with `wash`. Like doing the washing up, but for data.
 
 ## Phases
 
@@ -80,20 +68,19 @@ sink
 Validates and cleans email addresses:
 
 - RFC 5322 format validation
-- UK domain typo correction (bbc.com -> bbc.co.uk, gmial.com -> gmail.com)
+- UK domain typo correction (`bbc.com` → `bbc.co.uk`, `gmial.com` → `gmail.com`)
 - Disposable domain detection
 - MX record verification
-- Role-based email flagging (press@, info@)
+- Role-based email flagging (`press@`, `info@`)
 - Catch-all domain detection
-- Optional SMTP verification
+- Optional SMTP verification (`--smtp`)
 
 ### Rinse
 
 Deduplicates and resolves identities:
 
-- **Exact email** -- case-insensitive email dedup, keeps richer record
+- **Exact email** -- case-insensitive dedup, keeps the richer record
 - **Fuzzy name** -- Jaro-Winkler similarity within same domain (threshold: 0.92)
-- **Domain cluster** -- groups contacts by email domain
 - **Cross-field** -- matches by phone or website across different emails
 
 ### Soak
@@ -106,61 +93,32 @@ Enriches contacts with AI:
 - Submission guidelines
 - Pitch tips
 
-Supports **Anthropic** (Claude Haiku) and **OpenAI** (GPT-4o-mini) out of the box.
+Supports **Anthropic** (Claude Haiku) and **OpenAI** (GPT-4o-mini).
 
-## Configuration
+## Global Flags
 
-Create a `sink.config.ts` in your project root:
-
-```typescript
-export default {
-  scrub: {
-    smtp: false,
-    mxCacheTTL: 1800,
-    smtpTimeout: 10,
-  },
-  rinse: {
-    fuzzyThreshold: 0.92,
-    strategies: ['exact-email', 'fuzzy-name', 'domain-cluster', 'cross-field'],
-  },
-  soak: {
-    provider: 'anthropic',
-    anthropic: {
-      model: 'claude-haiku-4-5-20251001',
-      apiKey: process.env.ANTHROPIC_API_KEY,
-    },
-  },
-  output: {
-    format: 'csv',
-    locale: 'en-GB',
-  },
-};
+```
+-o, --output <path>       Output file path
+--format <csv|json|jsonl>  Output format (default: csv)
+--config <path>            Config file path
+--dry-run                  Preview without writing files
+--verbose                  Detailed output
+-q, --quiet                Suppress all output except errors
+--json                     JSON stdout (for piping)
+--no-colour                Disable colours
+--smtp                     Enable SMTP verification (scrub phase)
+--provider <name>          Enrichment provider (anthropic|openai)
 ```
 
-See `sink.config.example.ts` for all options.
+## Exit Codes
 
-## Programmatic API
-
-```typescript
-import { runPipeline, loadConfig } from 'sink-cli';
-
-const config = await loadConfig();
-const records = [
-  {
-    id: '1',
-    raw: { name: 'Sarah Jones', email: 'sarah@bbc.co.uk', outlet: 'BBC Radio 1' },
-    phases: [],
-    timestamp: new Date().toISOString(),
-  },
-];
-
-const { records: processed, stats } = await runPipeline(records, {
-  phases: ['scrub', 'rinse'],
-  config,
-});
-
-console.log(stats);
-```
+| Code | Meaning                                                   |
+| ---- | --------------------------------------------------------- |
+| `0`  | Success                                                   |
+| `1`  | File error (not found, permission denied, is a directory) |
+| `2`  | Parse error (invalid CSV, no usable data)                 |
+| `3`  | Config error (invalid config file)                        |
+| `4`  | Pipeline error (enrichment failure, unexpected crash)     |
 
 ## Provider Setup
 
@@ -178,42 +136,83 @@ export OPENAI_API_KEY=sk-...
 sink soak contacts.csv --provider openai
 ```
 
-## Custom Typo Map
-
-Add your own domain corrections:
-
-```json
-{
-  "radiox.co.k": "radiox.co.uk",
-  "amazingrdio.com": "amazingradio.com"
-}
-```
-
-```typescript
-// sink.config.ts
-export default {
-  scrub: {
-    typoMap: './data/custom-typos.json',
-  },
-};
-```
-
 ## Input Format
 
 Accepts CSV files with flexible column names:
 
-| Field | Accepted Headers |
-|-------|-----------------|
-| Name | name, contact, full name, person |
-| Email | email, e mail, email address |
-| Outlet | outlet, publication, media, company, station |
-| Role | role, title, position, job title |
-| Phone | phone, telephone, mobile |
-| Website | website, url, web |
-| Notes | notes, comments, description |
-| Tags | tags, categories, labels |
+| Field   | Accepted Headers                             |
+| ------- | -------------------------------------------- |
+| Name    | name, contact, full name, person             |
+| Email   | email, e mail, email address                 |
+| Outlet  | outlet, publication, media, company, station |
+| Role    | role, title, position, job title             |
+| Phone   | phone, telephone, mobile                     |
+| Website | website, url, web                            |
+| Notes   | notes, comments, description                 |
+| Tags    | tags, categories, labels                     |
 
 First/last name columns are automatically joined. Unmapped columns are preserved in `extras`.
+
+## Configuration
+
+Create a `sink.config.ts` in your project root:
+
+```typescript
+export default {
+  scrub: {
+    smtp: false,
+    mxCacheTTL: 1800,
+    smtpTimeout: 10,
+    typoMap: './data/custom-typos.json',
+  },
+  rinse: {
+    fuzzyThreshold: 0.92,
+    strategies: ['exact-email', 'fuzzy-name', 'cross-field'],
+  },
+  soak: {
+    provider: 'anthropic',
+    anthropic: {
+      model: 'claude-haiku-4-5-20251001',
+      apiKey: process.env.ANTHROPIC_API_KEY,
+    },
+  },
+  output: {
+    format: 'csv',
+    locale: 'en-GB',
+  },
+}
+```
+
+## Programmatic API
+
+```typescript
+import { runPipeline, loadConfig } from 'sink-cli'
+
+const config = await loadConfig()
+const records = [
+  {
+    id: '1',
+    raw: { name: 'Sarah Jones', email: 'sarah@bbc.co.uk', outlet: 'BBC Radio 1' },
+    phases: [],
+    timestamp: new Date().toISOString(),
+  },
+]
+
+const { records: processed, stats } = await runPipeline(records, {
+  phases: ['scrub', 'rinse'],
+  config,
+})
+
+console.log(stats)
+```
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for dev setup, code style, and PR guidelines.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for release history.
 
 ## Licence
 
