@@ -1,5 +1,5 @@
 {
-  "name": "sink-cli",
+  "name": "datasink",
   "version": "0.1.0",
   "description": "Data hygiene for music PR — scrub, rinse, soak your contact lists",
   "license": "MIT",

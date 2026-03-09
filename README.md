@@ -4,7 +4,7 @@
    /___/_/_//_/_/\_\
 ```
 
-[![npm version](https://img.shields.io/npm/v/sink-cli.svg)](https://www.npmjs.com/package/sink-cli)
+[![npm version](https://img.shields.io/npm/v/datasink.svg)](https://www.npmjs.com/package/datasink)
 [![CI](https://github.com/totalaudiopromo/sink-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/totalaudiopromo/sink-cli/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg)](https://nodejs.org)
@@ -29,15 +29,15 @@
 ## Quick Start
 
 ```bash
-npx sink-cli scrub contacts.csv          # validate emails
-npx sink-cli rinse contacts.csv          # deduplicate
-npx sink-cli wash contacts.csv           # full pipeline
+npx datasink scrub contacts.csv          # validate emails
+npx datasink rinse contacts.csv          # deduplicate
+npx datasink wash contacts.csv           # full pipeline
 ```
 
 Or install globally:
 
 ```bash
-npm install -g sink-cli
+npm install -g datasink
 sink scrub contacts.csv
 ```
 
@@ -186,7 +186,7 @@ export default {
 ## Programmatic API
 
 ```typescript
-import { runPipeline, loadConfig } from 'sink-cli'
+import { runPipeline, loadConfig } from 'datasink'
 
 const config = await loadConfig()
 const records = [
