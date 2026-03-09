@@ -25,7 +25,7 @@ Env HOME "/tmp"
 
 # Hidden setup
 Hide
-Type "cd /Users/chrisschofield/workspace/active/sink-cli && alias sink='node dist/cli.js' && cp video/contacts.csv contacts.csv && clear"
+Type "cd /Users/chrisschofield/workspace/active/sink-cli && alias sink='node dist/cli.js' && cp video/contacts.csv contacts.csv && source .env && export ANTHROPIC_API_KEY && clear"
 Enter
 Sleep 1s
 Show
@@ -36,9 +36,14 @@ Sleep 300ms
 Enter
 Sleep 3s
 
-# Exit the interactive menu
+# Exit cleanly — hide the "cancelled" text
+Hide
 Ctrl+C
 Sleep 500ms
+Type "clear"
+Enter
+Sleep 300ms
+Show
 
 # ── Scene 2: Show messy CSV ───────────────────────────────────────
 Type "cat contacts.csv"
@@ -58,8 +63,20 @@ Sleep 300ms
 Enter
 Sleep 4s
 
-# ── Scene 5: Inspect (follows rinse output) ───────────────────────
-Type "sink inspect clean.csv"
+# ── Scene 5: Soak / AI enrichment ─────────────────────────────────
+Type "sink soak clean.csv -o enriched.csv"
+Sleep 300ms
+Enter
+Sleep 20s
+
+# ── Scene 6: Spot-check a single email ───────────────────────────
+Type "sink spot sarah.jones@bbc.co.uk"
+Sleep 300ms
+Enter
+Sleep 4s
+
+# ── Scene 7: Inspect (final quality score) ───────────────────────
+Type "sink inspect enriched.csv"
 Sleep 300ms
 Enter
 Sleep 4s
