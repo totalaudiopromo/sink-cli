@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 
-import { readFileSync, writeFileSync } from 'node:fs'
-import { resolve, basename, extname } from 'node:path'
+import { writeFileSync } from 'node:fs'
+import { resolve, basename } from 'node:path'
 import { program } from 'commander'
 import chalk from 'chalk'
-import { nanoid } from 'nanoid'
 import { loadConfig } from './config.js'
 import { runPipeline } from './pipeline.js'
 import { generateCSV } from './output/csv.js'
 import { generateJSON, generateJSONL } from './output/json.js'
+import { resolveInput, parseInputText, deriveOutputPath } from './input.js'
 import {
   intro,
   step,
@@ -25,6 +25,7 @@ import type { SinkRecord, SinkConfig, Phase } from './types.js'
 
 // Load .env if present (works on Node 20+, no dependencies)
 try {
+  const { readFileSync } = await import('node:fs')
   const envContents = readFileSync(resolve('.env'), 'utf-8')
   for (const line of envContents.split('\n')) {
     const trimmed = line.trim()
@@ -53,61 +54,28 @@ const EXIT = {
 } as const
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Provider shortcuts — map friendly names to provider + model
 // ---------------------------------------------------------------------------
 
-/** Strip surrounding quotes and trailing whitespace (handles Finder drag-and-drop paths) */
-function cleanPath(filePath: string): string {
-  return filePath.trim().replace(/^["']|["']$/g, '')
+const PROVIDER_SHORTCUTS: Record<string, { provider: string; model: string }> = {
+  haiku: { provider: 'anthropic', model: 'claude-haiku-4-5-20251001' },
+  sonnet: { provider: 'anthropic', model: 'claude-sonnet-4-5-20250514' },
+  opus: { provider: 'anthropic', model: 'claude-opus-4-0-20250514' },
+  codex: { provider: 'openai', model: 'codex-mini-latest' },
+  'gpt-4o-mini': { provider: 'openai', model: 'gpt-4o-mini' },
 }
 
-function readFile(filePath: string): string {
-  try {
-    return readFileSync(resolve(filePath), 'utf-8')
-  } catch (err: unknown) {
-    const code = (err as NodeJS.ErrnoException).code
-    if (code === 'ENOENT') {
-      console.error(chalk.red(`\n  File not found: ${filePath}`))
-      console.error(chalk.dim('  Check the path and try again.\n'))
-    } else if (code === 'EISDIR') {
-      console.error(chalk.red(`\n  That's a directory, not a file: ${filePath}`))
-      console.error(chalk.dim('  Pass a CSV file path instead.\n'))
-    } else {
-      console.error(chalk.red(`\n  Cannot read file: ${filePath}`))
-    }
-    process.exit(EXIT.FILE_ERROR)
-  }
+function resolveProvider(name?: string): { provider?: string; model?: string } {
+  if (!name) return {}
+  const shortcut = PROVIDER_SHORTCUTS[name]
+  if (shortcut) return shortcut
+  // Pass through as-is (e.g. "anthropic", "openai")
+  return { provider: name }
 }
 
-function deriveOutputPath(inputPath: string, suffix: string, format: string): string {
-  const ext = format === 'csv' ? '.csv' : format === 'jsonl' ? '.jsonl' : '.json'
-  const base = basename(inputPath, extname(inputPath))
-  const dir = inputPath.includes('/') ? inputPath.replace(/\/[^/]+$/, '') : '.'
-  return `${dir}/${base}${suffix}${ext}`
-}
-
-async function parseInputFile(filePath: string): Promise<SinkRecord[]> {
-  const { parseCSV } = await import('./phases/scrub/parse.js')
-  const text = readFile(filePath)
-  const { contacts, errors } = parseCSV(text)
-
-  if (errors.length > 0 && contacts.length === 0) {
-    console.error(chalk.red('  Parse error: ' + errors[0]))
-    process.exit(EXIT.PARSE_ERROR)
-  }
-
-  // Show non-fatal warnings
-  for (const err of errors) {
-    console.warn(chalk.yellow(`  ${err}`))
-  }
-
-  return contacts.map((raw) => ({
-    id: nanoid(),
-    raw,
-    phases: [] as Phase[],
-    timestamp: new Date().toISOString(),
-  }))
-}
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 function writeOutput(records: SinkRecord[], outPath: string, format: string): void {
   let content: string
@@ -129,7 +97,7 @@ function writeOutput(records: SinkRecord[], outPath: string, format: string): vo
 // ---------------------------------------------------------------------------
 
 async function runPhases(
-  rawPath: string,
+  rawPath: string | undefined,
   phases: Phase[],
   opts: {
     output?: string
@@ -142,18 +110,26 @@ async function runPhases(
     noColour?: boolean
     smtp?: boolean
     provider?: string
+    demo?: boolean
+    url?: string
   },
 ): Promise<void> {
-  const filePath = cleanPath(rawPath)
   const startTime = Date.now()
 
   if (opts.noColour) chalk.level = 0
+
+  const { provider: providerName, model: providerModel } = resolveProvider(opts.provider)
 
   const config = await loadConfig({
     configPath: opts.config,
     overrides: {
       scrub: { smtp: opts.smtp },
-      soak: opts.provider ? { provider: opts.provider } : undefined,
+      soak: {
+        ...(providerName ? { provider: providerName } : undefined),
+        ...(providerName && providerModel
+          ? { [providerName]: { model: providerModel } }
+          : undefined),
+      },
       output: {
         format: (opts.format as SinkConfig['output']['format']) ?? 'csv',
         locale: 'en-GB',
@@ -163,13 +139,19 @@ async function runPhases(
 
   const silent = opts.json || opts.quiet
 
+  const { text, label } = await resolveInput({
+    file: rawPath,
+    demo: opts.demo,
+    url: opts.url,
+  })
+
   if (!silent) {
     intro(VERSION)
-    step(`Processing ${chalk.bold(basename(filePath))} through ${phases.join(chalk.dim(' → '))}`)
+    step(`Processing ${chalk.bold(label)} through ${phases.join(chalk.dim(' → '))}`)
     blank()
   }
 
-  const records = await parseInputFile(filePath)
+  const records = parseInputText(text)
 
   if (!silent) {
     stepComplete(`${records.length.toLocaleString('en-GB')} contacts parsed`)
@@ -199,7 +181,8 @@ async function runPhases(
   }
 
   const format = opts.format ?? 'csv'
-  const outPath = opts.output ?? deriveOutputPath(filePath, '-clean', format)
+  const outPath =
+    opts.output ?? deriveOutputPath(label, rawPath, '-clean', format)
 
   if (!opts.dryRun) {
     writeOutput(processed, outPath, format)
@@ -243,11 +226,18 @@ async function runSpot(email: string): Promise<void> {
   outro(0)
 }
 
-async function runInspect(rawPath: string): Promise<void> {
-  const filePath = cleanPath(rawPath)
+async function runInspect(
+  rawPath: string | undefined,
+  opts: { demo?: boolean; url?: string },
+): Promise<void> {
   intro(VERSION)
 
-  const records = await parseInputFile(filePath)
+  const { text } = await resolveInput({
+    file: rawPath,
+    demo: opts.demo,
+    url: opts.url,
+  })
+  const records = parseInputText(text)
   stepComplete(`${records.length.toLocaleString('en-GB')} contacts loaded`)
   blank()
 
@@ -280,32 +270,71 @@ async function runInspect(rawPath: string): Promise<void> {
 }
 
 async function runTui(
-  rawPath: string,
-  opts: { smtp?: boolean; provider?: string; config?: string },
+  rawPath: string | undefined,
+  opts: { smtp?: boolean; provider?: string; config?: string; demo?: boolean; url?: string },
 ): Promise<void> {
-  const filePath = cleanPath(rawPath)
+  // TUI currently requires a file path for its React component
+  // For demo/url/stdin, write to a temp file
+  const { text } = await resolveInput({
+    file: rawPath,
+    demo: opts.demo,
+    url: opts.url,
+  })
+
+  const { writeFileSync: writeSync } = await import('node:fs')
+  const { tmpdir } = await import('node:os')
+  const { join } = await import('node:path')
+  const tmpPath = join(tmpdir(), `sink-tui-${Date.now()}.csv`)
+  writeSync(tmpPath, text, 'utf-8')
+
   const config = await loadConfig({ configPath: opts.config })
   if (opts.smtp) config.scrub.smtp = true
-  if (opts.provider) config.soak.provider = opts.provider
+
+  const { provider: providerName, model: providerModel } = resolveProvider(opts.provider)
+  if (providerName) config.soak.provider = providerName
+  if (providerName && providerModel) {
+    ;(config.soak as Record<string, unknown>)[providerName] = {
+      ...((config.soak as Record<string, unknown>)[providerName] as Record<string, unknown> | undefined),
+      model: providerModel,
+    }
+  }
 
   const { render } = await import('ink')
   const { App } = await import('./ui/tui/app.js')
   const React = await import('react')
-  render(React.createElement(App, { filePath: resolve(filePath), config }))
+  render(React.createElement(App, { filePath: resolve(tmpPath), config }))
 }
 
 async function runDrain(
-  rawPath: string,
-  opts: { output?: string; format?: string },
+  rawPath: string | undefined,
+  opts: { output?: string; format?: string; demo?: boolean; url?: string },
 ): Promise<void> {
-  const filePath = cleanPath(rawPath)
-  const { drain } = await import('./output/drain.js')
+  const { text, label } = await resolveInput({
+    file: rawPath,
+    demo: opts.demo,
+    url: opts.url,
+  })
+
+  const records = parseInputText(text)
   const format = opts.format ?? 'csv'
-  const outPath = opts.output ?? deriveOutputPath(filePath, '-converted', format)
-  const result = drain(filePath, outPath, format as 'csv' | 'json' | 'jsonl')
+  const outPath =
+    opts.output ?? deriveOutputPath(label, rawPath, '-converted', format)
+
+  let content: string
+  switch (format) {
+    case 'json':
+      content = generateJSON(records.map((r) => r))
+      break
+    case 'jsonl':
+      content = generateJSONL(records.map((r) => r))
+      break
+    default:
+      content = generateCSV(records.map((r) => r))
+  }
+  writeFileSync(resolve(outPath), content, 'utf-8')
 
   intro(VERSION)
-  stepComplete(`Converted ${result.records} records to ${result.format}`)
+  stepComplete(`Converted ${records.length} records to ${format}`)
   showOutputPath(outPath)
   blank()
   outro(0)
@@ -336,11 +365,17 @@ program
     'after',
     `
 Examples:
-  ${chalk.dim('$')} sink scrub contacts.csv              Validate emails
-  ${chalk.dim('$')} sink scrub contacts.csv --smtp        Validate with SMTP check
-  ${chalk.dim('$')} sink wash contacts.csv --dry-run      Full pipeline, preview only
-  ${chalk.dim('$')} sink spot sarah@bbc.co.uk             Check a single email
-  ${chalk.dim('$')} sink inspect contacts.csv             Data quality score
+  ${chalk.dim('$')} sink demo                              Full pipeline on sample data
+  ${chalk.dim('$')} sink scrub contacts.csv                Validate emails
+  ${chalk.dim('$')} sink scrub --demo                      Validate with built-in sample data
+  ${chalk.dim('$')} sink scrub --url https://...           Fetch & validate from URL
+  ${chalk.dim('$')} pbpaste | sink scrub -                 Pipe from clipboard
+  ${chalk.dim('$')} sink wash contacts.csv --provider sonnet   Enrich with Claude Sonnet
+  ${chalk.dim('$')} sink spot sarah@bbc.co.uk              Check a single email
+  ${chalk.dim('$')} sink inspect contacts.csv              Data quality score
+
+Providers:
+  haiku, sonnet, opus (Anthropic) | gpt-4o-mini, codex (OpenAI)
 `,
   )
 
@@ -355,37 +390,56 @@ const globalOpts = (cmd: typeof program) =>
     .option('--json', 'JSON stdout (for piping)')
     .option('--no-colour', 'disable colours')
     .option('--smtp', 'enable SMTP verification')
-    .option('--provider <name>', 'soak enrichment provider (anthropic|openai)')
+    .option('--provider <name>', 'enrichment provider (haiku|sonnet|opus|codex|gpt-4o-mini)')
+    .option('--demo', 'use built-in sample data (no file needed)')
+    .option('--url <url>', 'fetch CSV from a URL')
 
-globalOpts(program.command('wash <file>').description('Full pipeline: scrub, rinse, soak')).action(
-  (file: string, opts: Record<string, unknown>) => {
+globalOpts(program.command('wash [file]').description('Full pipeline: scrub, rinse, soak')).action(
+  (file: string | undefined, opts: Record<string, unknown>) => {
     runPhases(file, ['scrub', 'rinse', 'soak'], opts as Parameters<typeof runPhases>[2])
   },
 )
 
-globalOpts(program.command('scrub <file>').description('Clean & validate emails')).action(
-  (file: string, opts: Record<string, unknown>) => {
+globalOpts(program.command('scrub [file]').description('Clean & validate emails')).action(
+  (file: string | undefined, opts: Record<string, unknown>) => {
     runPhases(file, ['scrub'], opts as Parameters<typeof runPhases>[2])
   },
 )
 
-globalOpts(program.command('rinse <file>').description('De-duplicate contacts')).action(
-  (file: string, opts: Record<string, unknown>) => {
+globalOpts(program.command('rinse [file]').description('De-duplicate contacts')).action(
+  (file: string | undefined, opts: Record<string, unknown>) => {
     runPhases(file, ['scrub', 'rinse'], opts as Parameters<typeof runPhases>[2])
   },
 )
 
-globalOpts(program.command('soak <file>').description('Enrich contacts with AI')).action(
-  (file: string, opts: Record<string, unknown>) => {
+globalOpts(program.command('soak [file]').description('Enrich contacts with AI')).action(
+  (file: string | undefined, opts: Record<string, unknown>) => {
     runPhases(file, ['scrub', 'soak'], opts as Parameters<typeof runPhases>[2])
   },
 )
 
 program
-  .command('drain <file>')
+  .command('demo')
+  .description('Run the full pipeline on sample data (no file needed)')
+  .option('--provider <name>', 'enrichment provider (haiku|sonnet|opus|codex|gpt-4o-mini)')
+  .option('--smtp', 'enable SMTP verification')
+  .option('--verbose', 'detailed output')
+  .option('--no-colour', 'disable colours')
+  .action((opts: Record<string, unknown>) => {
+    runPhases(undefined, ['scrub', 'rinse', 'soak'], {
+      ...opts,
+      demo: true,
+      verbose: (opts.verbose as boolean) ?? true,
+    } as Parameters<typeof runPhases>[2])
+  })
+
+program
+  .command('drain [file]')
   .description('Export / convert between formats')
   .option('-o, --output <path>', 'output file path')
   .option('--format <format>', 'target format (csv|json|jsonl)', 'csv')
+  .option('--demo', 'use built-in sample data')
+  .option('--url <url>', 'fetch CSV from a URL')
   .action(runDrain)
 
 program
@@ -394,16 +448,20 @@ program
   .action(runSpot)
 
 program
-  .command('inspect <file>')
+  .command('inspect [file]')
   .description('Inspect data quality score without cleaning')
+  .option('--demo', 'use built-in sample data')
+  .option('--url <url>', 'fetch CSV from a URL')
   .action(runInspect)
 
 program
-  .command('tui <file>')
+  .command('tui [file]')
   .description('Launch the full TUI dashboard')
   .option('--smtp', 'enable SMTP verification')
   .option('--provider <name>', 'enrichment provider')
   .option('--config <path>', 'config file path')
+  .option('--demo', 'use built-in sample data')
+  .option('--url <url>', 'fetch CSV from a URL')
   .action(runTui)
 
 program.action(async () => {
@@ -416,7 +474,100 @@ program.action(async () => {
       return
     }
 
-    if (result.file) {
+    // Build opts from interactive result
+    const interactiveOpts = {
+      smtp: result.options?.smtp as boolean,
+      provider: result.options?.provider as string,
+      demo: result.options?.demo as boolean,
+      verbose: result.options?.verbose as boolean,
+    }
+
+    // Handle raw text input (from paste)
+    if (result.text) {
+      const records = parseInputText(result.text)
+      const config = await loadConfig()
+
+      const { provider: providerName, model: providerModel } = resolveProvider(
+        interactiveOpts.provider,
+      )
+      if (providerName) config.soak.provider = providerName
+      if (providerName && providerModel) {
+        ;(config.soak as Record<string, unknown>)[providerName] = {
+          ...((config.soak as Record<string, unknown>)[providerName] as Record<string, unknown> | undefined),
+          model: providerModel,
+        }
+      }
+
+      const phases: Phase[] = []
+      switch (result.command) {
+        case 'wash':
+          phases.push('scrub', 'rinse', 'soak')
+          break
+        case 'scrub':
+          phases.push('scrub')
+          break
+        case 'rinse':
+          phases.push('scrub', 'rinse')
+          break
+        case 'soak':
+          phases.push('scrub', 'soak')
+          break
+        case 'drain': {
+          const { generateCSV: genCSV } = await import('./output/csv.js')
+          const content = genCSV(records)
+          const outPath = './pasted-converted.csv'
+          writeFileSync(resolve(outPath), content, 'utf-8')
+          intro(VERSION)
+          stepComplete(`Converted ${records.length} records`)
+          showOutputPath(outPath)
+          blank()
+          outro(0)
+          return
+        }
+        case 'inspect': {
+          intro(VERSION)
+          stepComplete(`${records.length.toLocaleString('en-GB')} contacts loaded`)
+          blank()
+          const inspectConfig = await loadConfig()
+          const { stats } = await runPipeline(records, { phases: ['scrub'], config: inspectConfig })
+          const total = stats.scrub.valid + stats.scrub.invalid + stats.scrub.risky
+          const score =
+            total > 0
+              ? Math.round(((stats.scrub.valid + stats.scrub.risky * 0.5) / total) * 100)
+              : 0
+          const scoreColour = score >= 80 ? chalk.green : score >= 60 ? chalk.yellow : chalk.red
+          step(`Quality score: ${scoreColour(score + '%')}`)
+          blank()
+          outro(0)
+          return
+        }
+      }
+
+      if (phases.length > 0) {
+        intro(VERSION)
+        step(`Processing ${chalk.bold('pasted data')} through ${phases.join(chalk.dim(' → '))}`)
+        blank()
+        stepComplete(`${records.length.toLocaleString('en-GB')} contacts parsed`)
+        blank()
+
+        const { records: processed, stats } = await runPipeline(records, { phases, config })
+        divider()
+        blank()
+        summary(stats)
+        blank()
+
+        const outPath = './pasted-clean.csv'
+        const content = generateCSV(processed)
+        writeFileSync(resolve(outPath), content, 'utf-8')
+        showOutputPath(outPath)
+        blank()
+        outro(Date.now())
+      }
+      return
+    }
+
+    // Handle demo or file-based input
+    if (result.file || interactiveOpts.demo) {
       const phases: Phase[] = []
       switch (result.command) {
         case 'wash':
@@ -432,18 +583,18 @@ program.action(async () => {
           phases.push('scrub', 'soak')
           break
         case 'drain':
-          await runDrain(result.file, { format: (result.options?.format as string) ?? 'csv' })
+          await runDrain(result.file, {
+            format: (result.options?.format as string) ?? 'csv',
+            demo: interactiveOpts.demo,
+          })
           return
         case 'inspect':
-          await runInspect(result.file)
+          await runInspect(result.file, { demo: interactiveOpts.demo })
           return
       }
 
       if (phases.length > 0) {
-        await runPhases(result.file, phases, {
-          smtp: result.options?.smtp as boolean,
-          provider: result.options?.provider as string,
-        })
+        await runPhases(result.file, phases, interactiveOpts)
       }
     }
   } catch {

@@ -2,6 +2,12 @@ import type { SoakProvider, SoakResult, SinkRecord } from '../../../types.js'
 import { SoakConfigError } from '../provider.js'
 import { buildPrompt, calculateConfidence } from '../prompt.js'
 
+const MODEL_ALIASES: Record<string, string> = {
+  haiku: 'claude-haiku-4-5-20251001',
+  sonnet: 'claude-sonnet-4-5-20250514',
+  opus: 'claude-opus-4-0-20250514',
+}
+
 export class AnthropicProvider implements SoakProvider {
   name = 'anthropic'
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- lazy-loaded SDK
@@ -14,7 +20,10 @@ export class AnthropicProvider implements SoakProvider {
 
     const { default: Anthropic } = await import('@anthropic-ai/sdk')
     this.client = new Anthropic({ apiKey })
-    if (config.model) this.model = config.model as string
+    if (config.model) {
+      const alias = MODEL_ALIASES[config.model as string]
+      this.model = alias ?? (config.model as string)
+    }
   }
 
   async enrich(record: SinkRecord): Promise<SoakResult> {

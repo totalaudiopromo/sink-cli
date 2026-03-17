@@ -22,6 +22,7 @@ const VERSION = '0.1.0'
 export async function runInteractive(): Promise<{
   command: string
   file?: string
+  text?: string
   options?: Record<string, unknown>
 }> {
   console.log(getLogo())
@@ -69,7 +70,7 @@ export async function runInteractive(): Promise<{
     return { command: 'spot', options: { email } }
   }
 
-  // File picker
+  // File / input picker
   const { readdirSync } = await import('node:fs')
   let csvFiles: string[] = []
   try {
@@ -77,37 +78,64 @@ export async function runInteractive(): Promise<{
       .filter((f) => f.endsWith('.csv'))
       .sort()
   } catch {
-    // No CSV files found, fall through to manual entry
+    // No CSV files found, fall through
   }
 
-  let filePath: string
-  if (csvFiles.length > 0) {
-    const options = csvFiles.map((f) => ({ value: f, label: f }))
-    options.push({ value: '__custom__', label: chalk.dim('Enter path manually...') })
+  let filePath: string | undefined
+  let pastedText: string | undefined
+  let useDemo = false
 
-    const selected = await p.select({
-      message: 'Which CSV file?',
-      options,
+  const inputOptions: { value: string; label: string }[] = []
+
+  // Demo option always available
+  inputOptions.push({
+    value: '__demo__',
+    label: `${chalk.green('\u25B6')} ${chalk.bold('Use demo data')}  ${chalk.dim('(built-in sample — great for trying it out)')}`,
+  })
+
+  // CSV files in CWD
+  for (const f of csvFiles) {
+    inputOptions.push({ value: f, label: f })
+  }
+
+  // Paste & manual entry
+  inputOptions.push({
+    value: '__paste__',
+    label: `${chalk.yellow('\u270E')} ${chalk.bold('Paste CSV data')}  ${chalk.dim('(paste rows directly)')}`,
+  })
+  inputOptions.push({
+    value: '__custom__',
+    label: chalk.dim('Enter path manually...'),
+  })
+
+  const selected = await p.select({
+    message: 'Where is your data?',
+    options: inputOptions,
+  })
+  if (p.isCancel(selected)) {
+    p.cancel('Cancelled.')
+    process.exit(0)
+  }
+
+  if (selected === '__demo__') {
+    useDemo = true
+  } else if (selected === '__paste__') {
+    const pasted = await p.text({
+      message: 'Paste your CSV data (header row + data rows):',
+      placeholder: 'name,email,outlet,role\nSarah Jones,sarah@bbc.co.uk,BBC Radio 1,Producer',
+      validate: (value) => {
+        if (!value?.trim()) return 'Please paste some CSV data.'
+        if (!value.includes(',') && !value.includes('\t')) {
+          return 'That doesn\'t look like CSV. Include commas between fields.'
+        }
+      },
     })
-    if (p.isCancel(selected)) {
+    if (p.isCancel(pasted)) {
       p.cancel('Cancelled.')
       process.exit(0)
     }
-
-    if (selected === '__custom__') {
-      const custom = await p.text({
-        message: 'Path to CSV file:',
-        placeholder: './contacts.csv',
-      })
-      if (p.isCancel(custom)) {
-        p.cancel('Cancelled.')
-        process.exit(0)
-      }
-      filePath = custom
-    } else {
-      filePath = selected
-    }
-  } else {
+    pastedText = pasted
+  } else if (selected === '__custom__') {
     const custom = await p.text({
       message: 'Path to CSV file:',
       placeholder: './contacts.csv',
@@ -117,10 +145,13 @@ export async function runInteractive(): Promise<{
       process.exit(0)
     }
     filePath = custom
+  } else {
+    filePath = selected
   }
 
   // Options for the selected command
   const opts: Record<string, unknown> = {}
+  if (useDemo) opts.demo = true
 
   if (command === 'wash' || command === 'scrub') {
     const selected = await p.multiselect({
@@ -138,16 +169,74 @@ export async function runInteractive(): Promise<{
   }
 
   if (command === 'wash' || command === 'soak') {
+    // Check for API keys to guide the user
+    const hasAnthropicKey = Boolean(process.env.ANTHROPIC_API_KEY)
+    const hasOpenAIKey = Boolean(process.env.OPENAI_API_KEY)
+
+    const providerOptions: { value: string; label: string; hint?: string }[] = [
+      {
+        value: 'haiku',
+        label: 'Anthropic Haiku',
+        hint: `fast & cheap${hasAnthropicKey ? '' : chalk.red(' — ANTHROPIC_API_KEY not set')}`,
+      },
+      {
+        value: 'sonnet',
+        label: 'Anthropic Sonnet',
+        hint: `balanced${hasAnthropicKey ? '' : chalk.red(' — ANTHROPIC_API_KEY not set')}`,
+      },
+      {
+        value: 'opus',
+        label: 'Anthropic Opus',
+        hint: `most capable${hasAnthropicKey ? '' : chalk.red(' — ANTHROPIC_API_KEY not set')}`,
+      },
+      {
+        value: 'gpt-4o-mini',
+        label: 'OpenAI GPT-4o-mini',
+        hint: hasOpenAIKey ? undefined : chalk.red('OPENAI_API_KEY not set'),
+      },
+      {
+        value: 'codex',
+        label: 'OpenAI Codex',
+        hint: hasOpenAIKey ? undefined : chalk.red('OPENAI_API_KEY not set'),
+      },
+      { value: 'skip', label: 'Skip enrichment' },
+    ]
+
     const provider = await p.select({
       message: 'AI enrichment provider',
-      options: [
-        { value: 'anthropic', label: 'Anthropic (Claude Haiku)', hint: 'recommended' },
-        { value: 'openai', label: 'OpenAI (GPT-4o-mini)' },
-        { value: 'skip', label: 'Skip enrichment' },
-      ],
+      options: providerOptions,
     })
+
     if (!p.isCancel(provider)) {
-      opts.provider = provider === 'skip' ? undefined : provider
+      if (provider === 'skip') {
+        opts.provider = undefined
+      } else {
+        opts.provider = provider
+
+        // If API key is missing, offer to enter it inline
+        const needsAnthropic =
+          (provider === 'haiku' || provider === 'sonnet' || provider === 'opus') &&
+          !hasAnthropicKey
+        const needsOpenAI =
+          (provider === 'gpt-4o-mini' || provider === 'codex') && !hasOpenAIKey
+
+        if (needsAnthropic || needsOpenAI) {
+          const envVar = needsAnthropic ? 'ANTHROPIC_API_KEY' : 'OPENAI_API_KEY'
+          const apiKey = await p.text({
+            message: `${envVar} not set. Enter it now (for this session only):`,
+            placeholder: 'sk-...',
+            validate: (value) => {
+              if (!value?.trim()) return `${envVar} is required for ${provider as string}.`
+            },
+          })
+          if (!p.isCancel(apiKey)) {
+            process.env[envVar] = apiKey
+          } else {
+            // Cancelled — skip enrichment
+            opts.provider = undefined
+          }
+        }
+      }
     }
   }
 
@@ -155,5 +244,10 @@ export async function runInteractive(): Promise<{
   console.log(chalk.dim(`  v${VERSION}  |  Enter  |  Ctrl+C Quit`))
   console.log('')
 
-  return { command: command as string, file: filePath, options: opts }
+  return {
+    command: command as string,
+    file: filePath,
+    text: pastedText,
+    options: opts,
+  }
 }
