@@ -31,15 +31,19 @@ const config: Partial<SinkConfig> = {
 
   soak: {
     // Which AI provider to use for enrichment
+    // Can also use shortcuts via CLI: --provider haiku|sonnet|opus|codex|gpt-4o-mini
     provider: 'anthropic',
 
     // Anthropic config
+    // Models: 'claude-haiku-4-5-20251001' (fast/cheap), 'claude-sonnet-4-5-20250514' (balanced), 'claude-opus-4-0-20250514' (most capable)
+    // Or use aliases: 'haiku', 'sonnet', 'opus'
     anthropic: {
       model: 'claude-haiku-4-5-20251001',
       apiKey: process.env.ANTHROPIC_API_KEY,
     },
 
     // OpenAI config
+    // Models: 'gpt-4o-mini', 'codex-mini-latest' (or alias: 'codex')
     // openai: {
     //   model: 'gpt-4o-mini',
     //   apiKey: process.env.OPENAI_API_KEY,

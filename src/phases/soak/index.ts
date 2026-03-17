@@ -73,6 +73,8 @@ export async function soak(
     // ora not available, fall back to progress callback only
   }
 
+  const soakStart = Date.now()
+
   for (let i = 0; i < enrichable.length; i++) {
     try {
       const soakResult = await withRetry(
@@ -99,7 +101,15 @@ export async function soak(
     }
 
     if (spinner) {
-      spinner.text = `Enriching ${i + 1}/${enrichable.length} contacts...`
+      const done = i + 1
+      const remaining = enrichable.length - done
+      let eta = ''
+      if (done >= 2 && remaining > 0) {
+        const avgMs = (Date.now() - soakStart) / done
+        const remainSecs = Math.ceil((avgMs * remaining) / 1000)
+        eta = ` (est. ${remainSecs}s remaining)`
+      }
+      spinner.text = `Enriching ${done}/${enrichable.length} contacts...${eta}`
     }
     onProgress?.({
       phase: 'soak',
