@@ -1,0 +1,16 @@
+name,email,outlet,role
+Gmail Typo 1,user@gmial.com,Test,DJ
+Gmail Typo 2,user@gmai.com,Test,DJ
+Gmail Typo 3,user@gamil.com,Test,DJ
+Hotmail Typo,user@hotmial.com,Test,DJ
+Hotmail UK Typo,user@hotmail.co.k,Test,DJ
+Outlook Typo,user@outlok.com,Test,DJ
+Yahoo Typo,user@yaho.com,Test,DJ
+BBC Wrong TLD,user@bbc.com,Test,DJ
+Sky Typo,user@sky.con,Test,DJ
+No Typo Gmail,user@gmail.com,Test,DJ
+No Typo Hotmail,user@hotmail.com,Test,DJ
+Googlemail,user@googlemail.com,Test,DJ
+Protonmail Typo,user@protonmal.com,Test,DJ
+iCloud Typo,user@icoud.com,Test,DJ
+Live UK Typo,user@live.co.k,Test,DJ

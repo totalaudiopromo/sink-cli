@@ -37,8 +37,9 @@ describe('pipeline e2e', () => {
       expect(r.phases).toContain('rinse');
     }
 
-    // Should have some valid and some invalid emails
-    expect(stats.scrub.valid).toBeGreaterThan(0);
+    // Should have some processable and some invalid emails
+    // In batch mode (no SMTP), catch-all/role-based domains get medium confidence (risky)
+    expect(stats.scrub.valid + stats.scrub.risky).toBeGreaterThan(0);
     expect(stats.scrub.invalid).toBeGreaterThan(0);
 
     // Typo domain (gmial.com) should be corrected

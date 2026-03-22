@@ -1,0 +1,16 @@
+name,email,outlet,role
+No At Sign,notanemail,Test,DJ
+Empty Email,,Test,DJ
+Just At,@,Test,DJ
+No Domain,user@,Test,DJ
+No Local,@gmail.com,Test,DJ
+Double At,user@@gmail.com,Test,DJ
+Spaces,user @gmail.com,Test,DJ
+Trailing Dot,user@gmail.com.,Test,DJ
+Leading Dot,user@.gmail.com,Test,DJ
+Valid Email,sarah@bbc.co.uk,BBC,Producer
+Valid Gmail,tom@gmail.com,Radio X,Presenter
+Unicode Local,ü@gmail.com,Test,DJ
+Very Long Local,aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@gmail.com,Test,DJ
+Script Injection,<script>@gmail.com,Test,DJ
+SQL Injection,"'; DROP TABLE--@gmail.com",Test,DJ

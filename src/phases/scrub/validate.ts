@@ -80,7 +80,8 @@ export interface ValidateConfig {
 }
 
 function isValidEmailFormat(email: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  // RFC 5322 compliant local part (no quoted strings) + standard domain
+  return /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/.test(email);
 }
 
 function isAllowlistedTLD(domain: string, musicTLDs: string[]): boolean {
@@ -142,6 +143,9 @@ export async function validateEmail(
   let original: string | undefined;
   let suggested: string | undefined;
 
+  // Role-based detection (compute early, include in all return paths)
+  const isRoleBased = rolePrefixes.has(localPart);
+
   // Domain typo correction
   const typoResult = correctDomain(localPart, domain);
   if (typoResult) {
@@ -187,6 +191,7 @@ export async function validateEmail(
         valid: true,
         normalised: workingEmail,
         confidence: 'medium',
+        roleBased: isRoleBased || undefined,
         corrected: corrected || undefined,
         original,
         suggested,
@@ -205,13 +210,13 @@ export async function validateEmail(
         normalised: workingEmail,
         reason: reason as EmailResult['reason'],
         confidence: 'low',
+        roleBased: isRoleBased || undefined,
         corrected: corrected || undefined,
         original,
         suggested,
       };
     }
 
-    const isRoleBased = rolePrefixes.has(localPart);
     return {
       valid: true,
       normalised: workingEmail,
@@ -253,6 +258,7 @@ export async function validateEmail(
         valid: true,
         normalised: workingEmail,
         confidence: 'medium',
+        roleBased: isRoleBased || undefined,
         corrected: corrected || undefined,
         original,
         suggested,
@@ -264,6 +270,7 @@ export async function validateEmail(
       normalised: workingEmail,
       reason: 'no_mx_record',
       confidence: 'low',
+      roleBased: isRoleBased || undefined,
       corrected: corrected || undefined,
       original,
       suggested,
@@ -287,6 +294,7 @@ export async function validateEmail(
       normalised: workingEmail,
       reason: 'invalid_format',
       confidence: 'none',
+      roleBased: isRoleBased || undefined,
       corrected: corrected || undefined,
       original,
       suggested,
@@ -301,6 +309,7 @@ export async function validateEmail(
       reason: 'disposable_domain',
       confidence: 'low',
       disposable: true,
+      roleBased: isRoleBased || undefined,
       corrected: corrected || undefined,
       original,
       suggested,
@@ -315,6 +324,7 @@ export async function validateEmail(
       reason: 'smtp_rejected',
       confidence: 'low',
       smtpVerified: false,
+      roleBased: isRoleBased || undefined,
       corrected: corrected || undefined,
       original,
       suggested,
@@ -334,6 +344,7 @@ export async function validateEmail(
       normalised: workingEmail,
       reason: 'no_mx_record',
       confidence: 'low',
+      roleBased: isRoleBased || undefined,
       corrected: corrected || undefined,
       original,
       suggested,
@@ -341,7 +352,6 @@ export async function validateEmail(
     };
   }
 
-  const isRoleBased = rolePrefixes.has(localPart);
   const isCatchAll = catchAllDomains.has(domain);
 
   let confidence: EmailResult['confidence'];

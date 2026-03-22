@@ -39,8 +39,9 @@ export async function scrub(
         ...record,
         scrub: {
           email: {
-            valid: true,
+            valid: false,
             normalised: '',
+            reason: 'invalid_format',
             confidence: 'none' as const,
           },
         },

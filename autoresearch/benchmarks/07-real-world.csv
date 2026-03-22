@@ -1,0 +1,12 @@
+First Name,Last Name,Email,Company,Position,Phone,Website,Notes
+James,Hartley,james.hartley@bbc.co.uk,BBC Radio 1,Producer,+44 7700 900001,bbc.co.uk/radio1,Mon-Fri mornings
+Sophie,,sophie@radiox.co.uk,Radio X,Presenter,,radiox.co.uk,
+Dan,Foster,dan.foster@gmial.com,Kerrang Radio,Producer,,kerrangradio.co.uk,Typo in email
+Rachel,Torres,rachel@absoluteradio.co.uk,Absolute Radio,DJ,+44 7700 900004,absoluteradio.co.uk,
+Priya,Kapoor,priya@diymagazine.com,DIY Magazine,Reviews Editor,,diymagazine.com,Prefers email
+Alex,,alex@clash-magazine.com,Clash Magazine,Music Editor,,clashmusic.com,
+Liam,"O'Brien",liam@hotmial.com,Radio Wigwam,Presenter,,radiowigwam.co.uk,Hotmail typo
+Dan,Foster,dan.foster@gmail.com,Kerrang Radio,Producer,,kerrangradio.co.uk,Duplicate of row 3
+Beth,Carpenter,beth@,Loud and Quiet,Reviews,,loudandquiet.com,Invalid email
+Nina,Patel,nina@thelineofbestfit.com,The Line of Best Fit,Staff Writer,,thelineofbestfit.com,
+Press Office,,press@amazingradio.com,Amazing Radio,,,amazingradio.com,Role-based
