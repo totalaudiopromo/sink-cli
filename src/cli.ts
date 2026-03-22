@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { writeFileSync } from 'node:fs'
-import { resolve, basename } from 'node:path'
+import { resolve } from 'node:path'
 import { program } from 'commander'
 import chalk from 'chalk'
 import { loadConfig } from './config.js'
@@ -16,9 +16,13 @@ import {
   blank,
   validationRow,
   divider,
-  summary,
   outputPath as showOutputPath,
   outro,
+  qualityScore,
+  transformSummary,
+  contactTable,
+  soakSkipWarning,
+  nextSteps,
   LOGO_LINES,
 } from './ui/format.js'
 import type { SinkRecord, SinkConfig, Phase } from './types.js'
@@ -112,6 +116,7 @@ async function runPhases(
     provider?: string
     demo?: boolean
     url?: string
+    skipIntro?: boolean
   },
 ): Promise<void> {
   const startTime = Date.now()
@@ -146,7 +151,7 @@ async function runPhases(
   })
 
   if (!silent) {
-    intro(VERSION)
+    if (!opts.skipIntro) intro(VERSION)
     step(`Processing ${chalk.bold(label)} through ${phases.join(chalk.dim(' → '))}`)
     blank()
   }
@@ -173,11 +178,22 @@ async function runPhases(
     return
   }
 
+  const soakSkipped = phases.includes('soak') && !processed.some((r) => r.phases.includes('soak'))
+
   if (!silent) {
     divider()
     blank()
-    summary(stats)
+    qualityScore(stats)
     blank()
+    transformSummary(records.length, stats)
+    blank()
+    contactTable(processed, { verbose: opts.verbose })
+    blank()
+
+    if (soakSkipped) {
+      soakSkipWarning()
+      blank()
+    }
   }
 
   const format = opts.format ?? 'csv'
@@ -188,10 +204,12 @@ async function runPhases(
     writeOutput(processed, outPath, format)
     if (!silent) showOutputPath(outPath)
   } else if (!silent) {
-    step(chalk.dim('Dry run — no files written.'))
+    step(chalk.dim('Dry run -- no files written.'))
   }
 
   if (!silent) {
+    blank()
+    nextSteps(outPath, stats, phases, soakSkipped)
     blank()
     outro(Date.now() - startTime)
   }
@@ -245,15 +263,12 @@ async function runInspect(
   const { stats } = await runPipeline(records, { phases: ['scrub'], config })
 
   const total = stats.scrub.valid + stats.scrub.invalid + stats.scrub.risky
-  const score =
-    total > 0 ? Math.round(((stats.scrub.valid + stats.scrub.risky * 0.5) / total) * 100) : 0
-  const scoreColour = score >= 80 ? chalk.green : score >= 60 ? chalk.yellow : chalk.red
 
   step(
-    `${records.length.toLocaleString('en-GB')} contacts, ${total.toLocaleString('en-GB')} with email`,
+    `${stats.total.toLocaleString('en-GB')} contacts, ${total.toLocaleString('en-GB')} with email`,
   )
   blank()
-  step(`Quality score: ${scoreColour(score + '%')}`)
+  qualityScore(stats)
   blank()
   validationRow('ok', 'Valid', stats.scrub.valid, '')
   validationRow(
@@ -530,13 +545,7 @@ program.action(async () => {
           blank()
           const inspectConfig = await loadConfig()
           const { stats } = await runPipeline(records, { phases: ['scrub'], config: inspectConfig })
-          const total = stats.scrub.valid + stats.scrub.invalid + stats.scrub.risky
-          const score =
-            total > 0
-              ? Math.round(((stats.scrub.valid + stats.scrub.risky * 0.5) / total) * 100)
-              : 0
-          const scoreColour = score >= 80 ? chalk.green : score >= 60 ? chalk.yellow : chalk.red
-          step(`Quality score: ${scoreColour(score + '%')}`)
+          qualityScore(stats)
           blank()
           outro(0)
           return
@@ -553,7 +562,11 @@ program.action(async () => {
         const { records: processed, stats } = await runPipeline(records, { phases, config })
         divider()
         blank()
-        summary(stats)
+        qualityScore(stats)
+        blank()
+        transformSummary(records.length, stats)
+        blank()
+        contactTable(processed)
         blank()
 
         const outPath = './pasted-clean.csv'
@@ -594,7 +607,7 @@ program.action(async () => {
       }
 
       if (phases.length > 0) {
-        await runPhases(result.file, phases, interactiveOpts)
+        await runPhases(result.file, phases, { ...interactiveOpts, skipIntro: true })
       }
     }
   } catch {

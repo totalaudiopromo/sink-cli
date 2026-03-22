@@ -40,6 +40,21 @@ async function readStdin(): Promise<string> {
   return Buffer.concat(chunks).toString('utf-8')
 }
 
+/** Convert a Google Sheets share/edit URL to a CSV export URL */
+export function toGoogleSheetsExportUrl(url: string): string {
+  if (!url.includes('docs.google.com/spreadsheets/d/')) return url
+  if (url.includes('/export?') || url.includes('/gviz/tq')) return url
+
+  const idMatch = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/)
+  if (!idMatch) return url
+
+  const id = idMatch[1]
+  const gidMatch = url.match(/[#&?]gid=(\d+)/)
+  const gid = gidMatch ? `&gid=${gidMatch[1]}` : ''
+
+  return `https://docs.google.com/spreadsheets/d/${id}/export?format=csv${gid}`
+}
+
 function readFile(filePath: string): string {
   try {
     return readFileSync(resolve(filePath), 'utf-8')
@@ -93,26 +108,52 @@ export async function resolveInput(opts: {
     return { text, label: 'stdin' }
   }
 
-  // 3. URL fetch
-  if (opts.url) {
+  // 3. URL fetch (supports Google Sheets share links, Dropbox, plain HTTP)
+  if (opts.url || (opts.file && (opts.file.startsWith('http://') || opts.file.startsWith('https://')))) {
+    const rawUrl = opts.url ?? opts.file!
+    const fetchTarget = toGoogleSheetsExportUrl(rawUrl)
     try {
-      const response = await fetch(opts.url)
+      const response = await fetch(fetchTarget, {
+        signal: AbortSignal.timeout(30_000),
+        headers: { 'User-Agent': 'sink-cli/0.1.0' },
+      })
       if (!response.ok) {
-        console.error(chalk.red(`\n  Failed to fetch URL: ${response.status} ${response.statusText}`))
-        console.error(chalk.dim(`  ${opts.url}\n`))
+        if (response.status === 401 || response.status === 403) {
+          const hint = rawUrl.includes('google.com')
+            ? " For Google Sheets, make sure the sheet is shared as 'Anyone with the link can view'."
+            : ''
+          console.error(chalk.red(`\n  Access denied (HTTP ${response.status}).${hint}`))
+        } else if (response.status === 404) {
+          console.error(chalk.red('\n  URL not found (HTTP 404). Check the URL and try again.'))
+        } else {
+          console.error(chalk.red(`\n  Failed to fetch URL: ${response.status} ${response.statusText}`))
+        }
+        console.error(chalk.dim(`  ${rawUrl}\n`))
         process.exit(1)
       }
       const text = await response.text()
       if (!text.trim()) {
         console.error(chalk.red('\n  URL returned empty response.'))
-        console.error(chalk.dim(`  ${opts.url}\n`))
+        console.error(chalk.dim(`  ${rawUrl}\n`))
         process.exit(1)
       }
-      const urlLabel = basename(new URL(opts.url).pathname) || opts.url
+      // Detect Dropbox HTML pages (got download page instead of file)
+      if (rawUrl.includes('dropbox.com') && text.trimStart().startsWith('<!DOCTYPE')) {
+        console.error(chalk.red("\n  Got an HTML page instead of CSV."))
+        console.error(chalk.dim("  For Dropbox links, add '?dl=1' to the URL to get a direct download.\n"))
+        process.exit(1)
+      }
+      const urlLabel = rawUrl.includes('google.com')
+        ? 'Google Sheet'
+        : basename(new URL(rawUrl).pathname) || rawUrl
       return { text, label: urlLabel }
     } catch (err) {
-      console.error(chalk.red(`\n  Cannot fetch URL: ${opts.url}`))
-      if (err instanceof Error) {
+      if (err instanceof DOMException && err.name === 'TimeoutError') {
+        console.error(chalk.red(`\n  URL request timed out after 30s.`))
+      } else {
+        console.error(chalk.red(`\n  Cannot fetch URL: ${rawUrl}`))
+      }
+      if (err instanceof Error && err.name !== 'TimeoutError') {
         console.error(chalk.dim(`  ${err.message}\n`))
       }
       process.exit(1)

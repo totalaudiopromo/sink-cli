@@ -17,8 +17,6 @@ function getLogo(): string {
   ].join('\n')
 }
 
-const VERSION = '0.1.0'
-
 export async function runInteractive(): Promise<{
   command: string
   file?: string
@@ -70,16 +68,46 @@ export async function runInteractive(): Promise<{
     return { command: 'spot', options: { email } }
   }
 
-  // File / input picker
-  const { readdirSync } = await import('node:fs')
-  let csvFiles: string[] = []
-  try {
-    csvFiles = readdirSync('.')
-      .filter((f) => f.endsWith('.csv'))
-      .sort()
-  } catch {
-    // No CSV files found, fall through
+  // File / input picker -- scan up to 2 levels deep
+  const { readdirSync, statSync } = await import('node:fs')
+  const { join, relative } = await import('node:path')
+
+  function findCsvFiles(
+    dir: string,
+    maxDepth = 2,
+    currentDepth = 0,
+  ): Array<{ path: string; size: number }> {
+    const results: Array<{ path: string; size: number }> = []
+    try {
+      const entries = readdirSync(dir, { withFileTypes: true })
+      for (const entry of entries) {
+        const fullPath = join(dir, entry.name)
+        if (entry.isFile() && entry.name.endsWith('.csv')) {
+          const stat = statSync(fullPath)
+          results.push({ path: relative('.', fullPath), size: stat.size })
+        } else if (
+          entry.isDirectory() &&
+          currentDepth < maxDepth &&
+          !entry.name.startsWith('.') &&
+          entry.name !== 'node_modules' &&
+          entry.name !== 'dist'
+        ) {
+          results.push(...findCsvFiles(fullPath, maxDepth, currentDepth + 1))
+        }
+      }
+    } catch {
+      /* permission denied etc */
+    }
+    return results
   }
+
+  function formatSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes}B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)}KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)}MB`
+  }
+
+  const csvFiles = findCsvFiles('.')
 
   let filePath: string | undefined
   let pastedText: string | undefined
@@ -90,19 +118,23 @@ export async function runInteractive(): Promise<{
   // Demo option always available
   inputOptions.push({
     value: '__demo__',
-    label: `${chalk.green('\u25B6')} ${chalk.bold('Use demo data')}  ${chalk.dim('(built-in sample — great for trying it out)')}`,
+    label: `${chalk.green('\u25B6')} ${chalk.bold('Use demo data')}  ${chalk.dim('(built-in sample -- great for trying it out)')}`,
   })
 
-  // CSV files in CWD
+  // CSV files found in CWD (2 levels deep)
   for (const f of csvFiles) {
-    inputOptions.push({ value: f, label: f })
+    inputOptions.push({
+      value: f.path,
+      label: `${f.path}  ${chalk.dim(formatSize(f.size))}`,
+    })
   }
 
-  // Paste & manual entry
+  // Paste, URL & manual entry
   inputOptions.push({
     value: '__paste__',
     label: `${chalk.yellow('\u270E')} ${chalk.bold('Paste CSV data')}  ${chalk.dim('(paste rows directly)')}`,
   })
+  inputOptions.push({ value: '__url__', label: chalk.dim('Paste a URL (Google Sheets, Dropbox, etc.)') })
   inputOptions.push({
     value: '__custom__',
     label: chalk.dim('Enter path manually...'),
@@ -135,10 +167,25 @@ export async function runInteractive(): Promise<{
       process.exit(0)
     }
     pastedText = pasted
+  } else if (selected === '__url__') {
+    const url = await p.text({
+      message: 'URL to CSV:',
+      placeholder: 'https://docs.google.com/spreadsheets/d/.../edit',
+      validate: (value = '') => {
+        if (!value.startsWith('http://') && !value.startsWith('https://')) {
+          return 'Must be an HTTP or HTTPS URL'
+        }
+      },
+    })
+    if (p.isCancel(url)) {
+      p.cancel('Cancelled.')
+      process.exit(0)
+    }
+    filePath = url
   } else if (selected === '__custom__') {
     const custom = await p.text({
-      message: 'Path to CSV file:',
-      placeholder: './contacts.csv',
+      message: 'Path or URL:',
+      placeholder: './contacts.csv or https://...',
     })
     if (p.isCancel(custom)) {
       p.cancel('Cancelled.')
@@ -239,10 +286,6 @@ export async function runInteractive(): Promise<{
       }
     }
   }
-
-  console.log('')
-  console.log(chalk.dim(`  v${VERSION}  |  Enter  |  Ctrl+C Quit`))
-  console.log('')
 
   return {
     command: command as string,

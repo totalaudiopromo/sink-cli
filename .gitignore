@@ -16,3 +16,6 @@ clean.csv
 video/node_modules/
 video/out/
 .DS_Store
+enriched.csv
+docs/demos/
+scripts/demos/

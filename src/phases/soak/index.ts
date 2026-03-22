@@ -44,7 +44,6 @@ export async function soak(
     await provider.init(providerConfig)
   } catch (err) {
     if (err instanceof SoakConfigError) {
-      console.warn(`  Skipping soak: ${err.message}`)
       return records
     }
     throw err
