@@ -214,6 +214,19 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for dev setup, code style, and PR guideli
 
 See [CHANGELOG.md](CHANGELOG.md) for release history.
 
+## Part of Total Audio
+
+Built by [Total Audio Promo](https://totalaudiopromo.com) -- professional music PR tools.
+
+| Project | Description |
+|---------|-------------|
+| [TAP](https://totalaudiopromo.com) | Campaign management for music PR agencies |
+| [totalaud.io](https://totalaud.io) | Release planning for emerging artists |
+| [SpotCheck](https://spotcheck.cc) | Spotify playlist validation |
+| [Newsjack](https://newsjack.cc) | Music industry newsjacking |
+| [Podflow](https://github.com/totalaudiopromo/podflow) | Podcast intelligence for music PR |
+| [Sink](https://github.com/totalaudiopromo/sink-cli) | Contact data hygiene CLI |
+
 ## Licence
 
 MIT
