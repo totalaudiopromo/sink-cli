@@ -216,7 +216,7 @@ See [CHANGELOG.md](CHANGELOG.md) for release history.
 
 ## Part of Total Audio
 
-Built by [Total Audio Promo](https://totalaudiopromo.com) -- professional music PR tools.
+Tools I build for music PR, by [Chris Schofield](https://x.com/chrisschouk). Part of [Total Audio Promo](https://totalaudiopromo.com).
 
 | Project | Description |
 |---------|-------------|
@@ -226,6 +226,8 @@ Built by [Total Audio Promo](https://totalaudiopromo.com) -- professional music 
 | [Newsjack](https://newsjack.cc) | Music industry newsjacking |
 | [Podflow](https://github.com/totalaudiopromo/podflow) | Podcast intelligence for music PR |
 | [Sink](https://github.com/totalaudiopromo/sink-cli) | Contact data hygiene CLI |
+
+Questions? Reach me on [X/@chrisschouk](https://x.com/chrisschouk) or [info@totalaudiopromo.com](mailto:info@totalaudiopromo.com).
 
 ## Licence
 
