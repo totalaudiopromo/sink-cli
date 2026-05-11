@@ -48,6 +48,7 @@ export function App({ filePath, config, phases: requestedPhases }: AppProps) {
     scrub: { current: 0, total: 0, elapsed: 0, active: false, done: false },
     rinse: { current: 0, total: 0, elapsed: 0, active: false, done: false },
     soak: { current: 0, total: 0, elapsed: 0, active: false, done: false },
+    steep: { current: 0, total: 0, elapsed: 0, active: false, done: false },
   })
 
   useEffect(() => {

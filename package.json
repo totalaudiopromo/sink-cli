@@ -1,7 +1,7 @@
 {
   "name": "datasink",
-  "version": "0.1.0",
-  "description": "Data hygiene for music PR — scrub, rinse, soak your contact lists",
+  "version": "0.2.0",
+  "description": "Data hygiene for music PR — scrub, rinse, soak, steep your contact lists",
   "license": "MIT",
   "type": "module",
   "bin": {

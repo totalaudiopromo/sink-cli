@@ -25,17 +25,19 @@ export class OpenAIProvider implements SoakProvider {
     }
   }
 
-  async enrich(record: SinkRecord): Promise<SoakResult> {
-    const prompt = buildPrompt(record)
-
+  async complete(prompt: string, opts?: { maxTokens?: number }): Promise<string> {
     const response = await this.client.chat.completions.create({
       model: this.model,
       messages: [{ role: 'user', content: prompt }],
-      max_tokens: 512,
+      max_tokens: opts?.maxTokens ?? 512,
       response_format: { type: 'json_object' },
     })
+    return response.choices[0]?.message?.content ?? ''
+  }
 
-    const text = response.choices[0]?.message?.content ?? ''
+  async enrich(record: SinkRecord): Promise<SoakResult> {
+    const prompt = buildPrompt(record)
+    const text = await this.complete(prompt, { maxTokens: 512 })
 
     try {
       const cleaned = text.replace(/^```(?:json)?\n?/m, '').replace(/\n?```$/m, '')

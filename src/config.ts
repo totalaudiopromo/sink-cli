@@ -17,6 +17,13 @@ const DEFAULT_CONFIG: SinkConfig = {
     rateLimit: 200,
     maxRetries: 3,
   },
+  steep: {
+    scraper: 'firecrawl',
+    extractor: 'anthropic',
+    rateLimit: 250,
+    maxRetries: 2,
+    cacheTtl: 30 * 24 * 60 * 60 * 1000,
+  },
   output: {
     format: 'csv',
     locale: 'en-GB',

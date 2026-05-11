@@ -43,23 +43,24 @@ sink scrub contacts.csv
 
 ## Commands
 
-| Command               | Description                           |
-| --------------------- | ------------------------------------- |
-| `sink`                | Interactive menu (no args)            |
-| `sink wash <file>`    | Full pipeline: scrub + rinse + soak   |
-| `sink scrub <file>`   | Validate & clean emails               |
-| `sink rinse <file>`   | Deduplicate contacts                  |
-| `sink soak <file>`    | Enrich contacts with AI               |
-| `sink spot <email>`   | Spot-check a single email (with SMTP) |
-| `sink inspect <file>` | Data quality score                    |
-| `sink drain <file>`   | Convert between formats               |
-| `sink tui <file>`     | Full TUI dashboard                    |
+| Command               | Description                                   |
+| --------------------- | --------------------------------------------- |
+| `sink`                | Interactive menu (no args)                    |
+| `sink wash <file>`    | Full pipeline: scrub + rinse + soak + steep   |
+| `sink scrub <file>`   | Validate & clean emails                       |
+| `sink rinse <file>`   | Deduplicate contacts                          |
+| `sink soak <file>`    | Enrich contacts with AI                       |
+| `sink steep <file>`   | Discover channels via outlet site scraping    |
+| `sink spot <email>`   | Spot-check a single email (with SMTP)         |
+| `sink inspect <file>` | Data quality score                            |
+| `sink drain <file>`   | Convert between formats                       |
+| `sink tui <file>`     | Full TUI dashboard                            |
 
 ## Why sink?
 
 - **Built for music PR.** Knows BBC Radio 1 from Radio X, catches `bbc.com` → `bbc.co.uk` typos, flags role-based emails like `press@`. Not a generic email validator -- it understands your industry.
 - **Zero config.** Point it at a CSV and go. Flexible header matching means it works with whatever your spreadsheet exports. No mapping files, no setup wizard.
-- **Three phases, one metaphor.** Scrub cleans. Rinse deduplicates. Soak enriches. Run them individually or all at once with `wash`. Like doing the washing up, but for data.
+- **Four phases, one metaphor.** Scrub cleans. Rinse deduplicates. Soak enriches. Steep extracts channels from outlet sites. Run them individually or all at once with `wash`. Like doing the washing up, but for data.
 
 ## Phases
 
@@ -94,6 +95,21 @@ Enriches contacts with AI:
 - Pitch tips
 
 Supports **Anthropic** (Claude Haiku) and **OpenAI** (GPT-4o-mini).
+
+### Steep
+
+Discovers contact channels by scraping the outlet's public website:
+
+- Outlet socials (Instagram, Twitter, LinkedIn, Facebook)
+- Submission portal URL + submission email
+- Submission format (mp3, link, form, mixed)
+- Recent presenters / journalists named on the site
+- Per-contact attribution: when a contact's name appears on the team / presenter page, their personal handles are extracted
+- Pitch hooks: specific, observable hooks pulled from the scraped text ("submissions form requires ISRC", "no submissions email -- portal only")
+
+Outlet scrapes are cached for 30 days. One scrape powers every contact at that outlet.
+
+Requires `FIRECRAWL_API_KEY` and an LLM provider key. Phase is silently skipped if creds are missing.
 
 ## Global Flags
 

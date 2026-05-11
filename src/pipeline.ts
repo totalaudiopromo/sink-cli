@@ -16,6 +16,7 @@ const phaseRunners: Record<Phase, PhaseRunner | null> = {
   scrub: null,
   rinse: null,
   soak: null,
+  steep: null,
 };
 
 /**
@@ -47,6 +48,11 @@ async function ensurePhase(phase: Phase): Promise<PhaseRunner> {
       registerPhase('soak', mod.soak);
       break;
     }
+    case 'steep': {
+      const mod = await import('./phases/steep/index.js');
+      registerPhase('steep', mod.steep);
+      break;
+    }
   }
 
   const runner = phaseRunners[phase];
@@ -69,8 +75,17 @@ function computeStats(records: SinkRecord[], durationMs: number): SinkStats {
     scrub: { valid: 0, invalid: 0, risky: 0, typos: 0, domains: 0 },
     rinse: { duplicates: 0, merged: 0, fuzzyMatches: 0 },
     soak: { enriched: 0, failed: 0, skipped: 0 },
+    steep: {
+      outletsScraped: 0,
+      outletsFromCache: 0,
+      contactsMatched: 0,
+      skipped: 0,
+      failed: 0,
+    },
     duration: durationMs,
   };
+
+  const steepOutletsSeen = new Set<string>();
 
   const domains = new Set<string>();
 
@@ -102,6 +117,21 @@ function computeStats(records: SinkRecord[], durationMs: number): SinkStats {
         stats.soak.skipped++;
       } else {
         stats.soak.failed++;
+      }
+    }
+
+    if (record.phases.includes('steep')) {
+      if (record.steep) {
+        const domain = record.steep.outletDomain;
+        if (!steepOutletsSeen.has(domain)) {
+          steepOutletsSeen.add(domain);
+          if (record.steep.cacheAge > 0) stats.steep.outletsFromCache++;
+          else if (record.steep.confidence.overall === 'none') stats.steep.failed++;
+          else stats.steep.outletsScraped++;
+        }
+        if (record.steep.confirmedAtOutlet) stats.steep.contactsMatched++;
+      } else {
+        stats.steep.skipped++;
       }
     }
   }

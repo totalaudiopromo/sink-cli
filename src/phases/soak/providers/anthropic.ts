@@ -26,16 +26,18 @@ export class AnthropicProvider implements SoakProvider {
     }
   }
 
-  async enrich(record: SinkRecord): Promise<SoakResult> {
-    const prompt = buildPrompt(record)
-
+  async complete(prompt: string, opts?: { maxTokens?: number }): Promise<string> {
     const response = await this.client.messages.create({
       model: this.model,
-      max_tokens: 512,
+      max_tokens: opts?.maxTokens ?? 512,
       messages: [{ role: 'user', content: prompt }],
     })
+    return response.content[0]?.type === 'text' ? response.content[0].text : ''
+  }
 
-    const text = response.content[0]?.type === 'text' ? response.content[0].text : ''
+  async enrich(record: SinkRecord): Promise<SoakResult> {
+    const prompt = buildPrompt(record)
+    const text = await this.complete(prompt, { maxTokens: 512 })
 
     try {
       const cleaned = text.replace(/^```(?:json)?\n?/m, '').replace(/\n?```$/m, '')

@@ -409,11 +409,13 @@ const globalOpts = (cmd: typeof program) =>
     .option('--demo', 'use built-in sample data (no file needed)')
     .option('--url <url>', 'fetch CSV from a URL')
 
-globalOpts(program.command('wash [file]').description('Full pipeline: scrub, rinse, soak')).action(
-  (file: string | undefined, opts: Record<string, unknown>) => {
-    runPhases(file, ['scrub', 'rinse', 'soak'], opts as Parameters<typeof runPhases>[2])
-  },
-)
+globalOpts(
+  program
+    .command('wash [file]')
+    .description('Full pipeline: scrub, rinse, soak, steep'),
+).action((file: string | undefined, opts: Record<string, unknown>) => {
+  runPhases(file, ['scrub', 'rinse', 'soak', 'steep'], opts as Parameters<typeof runPhases>[2])
+})
 
 globalOpts(program.command('scrub [file]').description('Clean & validate emails')).action(
   (file: string | undefined, opts: Record<string, unknown>) => {
@@ -433,6 +435,14 @@ globalOpts(program.command('soak [file]').description('Enrich contacts with AI')
   },
 )
 
+globalOpts(
+  program
+    .command('steep [file]')
+    .description('Discover channels: scrape outlet sites for socials, portals, presenter handles'),
+).action((file: string | undefined, opts: Record<string, unknown>) => {
+  runPhases(file, ['scrub', 'soak', 'steep'], opts as Parameters<typeof runPhases>[2])
+})
+
 program
   .command('demo')
   .description('Run the full pipeline on sample data (no file needed)')
@@ -441,7 +451,7 @@ program
   .option('--verbose', 'detailed output')
   .option('--no-colour', 'disable colours')
   .action((opts: Record<string, unknown>) => {
-    runPhases(undefined, ['scrub', 'rinse', 'soak'], {
+    runPhases(undefined, ['scrub', 'rinse', 'soak', 'steep'], {
       ...opts,
       demo: true,
       verbose: (opts.verbose as boolean) ?? true,
@@ -516,7 +526,10 @@ program.action(async () => {
       const phases: Phase[] = []
       switch (result.command) {
         case 'wash':
-          phases.push('scrub', 'rinse', 'soak')
+          phases.push('scrub', 'rinse', 'soak', 'steep')
+          break
+        case 'steep':
+          phases.push('scrub', 'soak', 'steep')
           break
         case 'scrub':
           phases.push('scrub')
@@ -584,7 +597,10 @@ program.action(async () => {
       const phases: Phase[] = []
       switch (result.command) {
         case 'wash':
-          phases.push('scrub', 'rinse', 'soak')
+          phases.push('scrub', 'rinse', 'soak', 'steep')
+          break
+        case 'steep':
+          phases.push('scrub', 'soak', 'steep')
           break
         case 'scrub':
           phases.push('scrub')
