@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **SMTP verification was a no-op in 0.1.0–0.2.0.** `scrub.smtpTimeout` is
+  documented in seconds but was passed to the validator as milliseconds, so the
+  default of 10 became a 10ms timeout — every `--smtp` check timed out and
+  silently fell back to a "valid / medium confidence" verdict. The timeout is
+  now converted correctly; results from `--smtp` runs on earlier versions
+  should not be trusted.
+- Config loading no longer swallows errors. An explicit `--config <path>` that
+  is missing or fails to parse now exits with code 3; an auto-discovered config
+  that fails to load warns and falls back to defaults (previously all failures
+  were silent). Config files now load on Windows (`pathToFileURL`).
+- `sink -v` and the URL-fetch User-Agent now report the real package version
+  (was hardcoded to `0.1.0` while the package shipped as `0.2.0`).
+- Demo images in the README now resolve (assets committed to `docs/demos/`).
+- `pnpm build` cleans `dist/` first, so orphaned modules no longer ship to npm.
+
+### Changed
+
+- **`sink steep` now runs `scrub → rinse → steep`** instead of
+  `scrub → soak → steep`. Steep does per-outlet channel discovery and never
+  consumed soak's per-contact enrichment, so the implicit soak was wasted LLM
+  cost. Use `sink wash` for the full pipeline including soak.
+- Config: recommend `sink.config.mjs` / `.json`; `.ts` config requires Node
+  >= 23.6. Removed the never-implemented `domain-cluster` dedup strategy from
+  the example config.
+
+### Internal
+
+- CI now enforces `lint` and `format:check`; the publish workflow verifies the
+  git tag matches `package.json` and runs the same gates.
+- e2e tests no longer hit live DNS; added a test suite for the steep phase and
+  for config loading (network-free, deterministic).
+
 ## [0.2.0] - 2026-05-02
 
 ### Added
