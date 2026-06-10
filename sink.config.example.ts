@@ -26,7 +26,7 @@ const config: Partial<SinkConfig> = {
     // fuzzyThreshold: 0.92,
 
     // Dedup strategies to run, in order
-    // strategies: ['exact-email', 'fuzzy-name', 'domain-cluster', 'cross-field'],
+    // strategies: ['exact-email', 'fuzzy-name', 'cross-field'],
   },
 
   soak: {

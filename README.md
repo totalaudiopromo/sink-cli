@@ -12,7 +12,7 @@
 **Data hygiene for music PR.** Scrub, rinse, and soak your contact lists.
 
 <p align="center">
-  <img src="video/out/sink-quick.gif" alt="sink-cli quick demo" width="720" />
+  <img src="docs/demos/sink-quick.gif" alt="sink-cli quick demo" width="720" />
 </p>
 
 > _Demo uses fictional contacts for illustration._
@@ -20,7 +20,7 @@
 <details>
 <summary>Full workflow demo (scrub, rinse, inspect)</summary>
 <p align="center">
-  <img src="video/out/sink-full.gif" alt="sink-cli full workflow demo" width="720" />
+  <img src="docs/demos/sink-full.gif" alt="sink-cli full workflow demo" width="720" />
 </p>
 </details>
 
@@ -82,7 +82,7 @@ Deduplicates and resolves identities:
 
 - **Exact email** -- case-insensitive dedup, keeps the richer record
 - **Fuzzy name** -- Jaro-Winkler similarity within same domain (threshold: 0.92)
-- **Cross-field** -- matches by phone or website across different emails
+- **Cross-field** -- matches by phone across different emails
 
 ### Soak
 
@@ -107,7 +107,9 @@ Discovers contact channels by scraping the outlet's public website:
 - Per-contact attribution: when a contact's name appears on the team / presenter page, their personal handles are extracted
 - Pitch hooks: specific, observable hooks pulled from the scraped text ("submissions form requires ISRC", "no submissions email -- portal only")
 
-Outlet scrapes are cached for 30 days. One scrape powers every contact at that outlet.
+One scrape powers every contact at that outlet. The CLI caches scrapes in
+memory for the duration of a run; a persistent 30-day cache is available to
+programmatic consumers that supply their own `CacheAdapter` (see below).
 
 Requires `FIRECRAWL_API_KEY` and an LLM provider key. Phase is silently skipped if creds are missing.
 

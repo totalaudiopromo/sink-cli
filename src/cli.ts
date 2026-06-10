@@ -48,7 +48,6 @@ try {
   /* .env file not found, using process.env */
 }
 
-
 // Exit codes
 const EXIT = {
   FILE_ERROR: 1,

@@ -1,7 +1,7 @@
 import type { SinkRecord } from '../../types.js'
 
 /**
- * Cross-field matching: find records with matching phone or website
+ * Cross-field matching: find records with matching phone numbers
  * across different email addresses.
  */
 export function crossFieldMatch(records: SinkRecord[]): SinkRecord[] {
