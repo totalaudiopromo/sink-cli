@@ -209,7 +209,7 @@ export async function steep(
       scrapedText: scrape.text,
     })
 
-    let payload: ExtractedPayload | null = null
+    let payload: ExtractedPayload | null
     try {
       const text = await extractor.complete(prompt, { maxTokens: 1024 })
       payload = parseExtraction(text)

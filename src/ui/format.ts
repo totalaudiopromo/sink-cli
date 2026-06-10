@@ -172,7 +172,9 @@ export function contactTable(
     nonDupeTotal++
     if (shown < max) {
       const name = truncate(record.raw.name || '(unnamed)', 22).padEnd(22)
-      const email = truncate(record.scrub?.email.normalised || record.raw.email || '', 26).padEnd(26)
+      const email = truncate(record.scrub?.email.normalised || record.raw.email || '', 26).padEnd(
+        26,
+      )
       const { icon, reason } = contactReason(record)
       console.log(`  ${icon} ${name} ${chalk.dim(email)} ${reason}`)
       shown++
@@ -188,7 +190,9 @@ export function contactTable(
 }
 
 export function soakSkipWarning(): void {
-  console.log(`  ${chalk.yellow('\u26A0')} ${chalk.yellow('Soak skipped')} ${chalk.dim('-- ANTHROPIC_API_KEY not set')}`)
+  console.log(
+    `  ${chalk.yellow('\u26A0')} ${chalk.yellow('Soak skipped')} ${chalk.dim('-- ANTHROPIC_API_KEY not set')}`,
+  )
   console.log(chalk.dim(`    Add to .env:    ANTHROPIC_API_KEY=sk-ant-...`))
   console.log(chalk.dim(`    Or run with:    --provider openai`))
 }

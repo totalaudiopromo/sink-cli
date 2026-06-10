@@ -10,12 +10,12 @@
  * - Two modes: batch (no SMTP) and single (full SMTP check)
  */
 
-import { validate } from 'deep-email-validator';
-import { MxCache } from '../../utils/mx-cache.js';
-import { correctDomain } from './typo-map.js';
-import type { ScrubResult } from '../../types.js';
+import { validate } from 'deep-email-validator'
+import { MxCache } from '../../utils/mx-cache.js'
+import { correctDomain } from './typo-map.js'
+import type { ScrubResult } from '../../types.js'
 
-type EmailResult = ScrubResult['email'];
+type EmailResult = ScrubResult['email']
 
 const DEFAULT_ROLE_PREFIXES = [
   'info',
@@ -35,7 +35,7 @@ const DEFAULT_ROLE_PREFIXES = [
   'general',
   'office',
   'reception',
-];
+]
 
 const DEFAULT_MUSIC_TLDS = [
   '.org.uk',
@@ -52,7 +52,7 @@ const DEFAULT_MUSIC_TLDS = [
   '.band',
   '.community',
   '.org',
-];
+]
 
 const DEFAULT_CATCH_ALL = [
   'gmail.com',
@@ -67,30 +67,32 @@ const DEFAULT_CATCH_ALL = [
   'yahoo.co.uk',
   'live.co.uk',
   'btinternet.com',
-];
+]
 
 export interface ValidateConfig {
-  smtp?: boolean;
-  smtpTimeout?: number;
-  rolePrefixes?: string[];
-  catchAllDomains?: string[];
-  musicTLDs?: string[];
-  mxCacheTTL?: number;
-  onProgress?: (email: string, result: EmailResult, index: number, total: number) => void;
+  smtp?: boolean
+  smtpTimeout?: number
+  rolePrefixes?: string[]
+  catchAllDomains?: string[]
+  musicTLDs?: string[]
+  mxCacheTTL?: number
+  onProgress?: (email: string, result: EmailResult, index: number, total: number) => void
 }
 
 function isValidEmailFormat(email: string): boolean {
   // RFC 5322 compliant local part (no quoted strings) + standard domain
-  return /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/.test(email);
+  return /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/.test(
+    email,
+  )
 }
 
 function isAllowlistedTLD(domain: string, musicTLDs: string[]): boolean {
-  return musicTLDs.some(tld => domain.endsWith(tld));
+  return musicTLDs.some((tld) => domain.endsWith(tld))
 }
 
 async function probeBlanketReject(domain: string, smtpTimeout: number): Promise<boolean> {
-  const fakeLocal = `sink-probe-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
-  const fakeEmail = `${fakeLocal}@${domain}`;
+  const fakeLocal = `sink-probe-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
+  const fakeEmail = `${fakeLocal}@${domain}`
 
   try {
     const result = await Promise.race([
@@ -104,56 +106,52 @@ async function probeBlanketReject(domain: string, smtpTimeout: number): Promise<
         validateSMTP: true,
       }),
       new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('smtp_timeout')), smtpTimeout)
+        setTimeout(() => reject(new Error('smtp_timeout')), smtpTimeout),
       ),
-    ]);
+    ])
 
-    const smtpOk = result.validators.smtp?.valid ?? undefined;
-    return smtpOk === false;
+    const smtpOk = result.validators.smtp?.valid ?? undefined
+    return smtpOk === false
   } catch {
-    return false;
+    return false
   }
 }
 
 export async function validateEmail(
   email: string,
-  config: ValidateConfig & { mxCache: MxCache }
+  config: ValidateConfig & { mxCache: MxCache },
 ): Promise<EmailResult> {
-  const {
-    smtp = false,
-    smtpTimeout = 10_000,
-    mxCache,
-  } = config;
-  const rolePrefixes = new Set(config.rolePrefixes ?? DEFAULT_ROLE_PREFIXES);
-  const musicTLDs = config.musicTLDs ?? DEFAULT_MUSIC_TLDS;
-  const catchAllDomains = new Set(config.catchAllDomains ?? DEFAULT_CATCH_ALL);
+  const { smtp = false, smtpTimeout = 10_000, mxCache } = config
+  const rolePrefixes = new Set(config.rolePrefixes ?? DEFAULT_ROLE_PREFIXES)
+  const musicTLDs = config.musicTLDs ?? DEFAULT_MUSIC_TLDS
+  const catchAllDomains = new Set(config.catchAllDomains ?? DEFAULT_CATCH_ALL)
 
-  const mode = smtp ? 'single' : 'batch';
-  const normalised = email.toLowerCase().trim();
+  const mode = smtp ? 'single' : 'batch'
+  const normalised = email.toLowerCase().trim()
 
-  const atIndex = normalised.indexOf('@');
+  const atIndex = normalised.indexOf('@')
   if (atIndex === -1) {
-    return { valid: false, normalised, reason: 'invalid_format', confidence: 'none' };
+    return { valid: false, normalised, reason: 'invalid_format', confidence: 'none' }
   }
 
-  const localPart = normalised.slice(0, atIndex);
-  let domain = normalised.slice(atIndex + 1);
-  let workingEmail = normalised;
-  let corrected = false;
-  let original: string | undefined;
-  let suggested: string | undefined;
+  const localPart = normalised.slice(0, atIndex)
+  let domain = normalised.slice(atIndex + 1)
+  let workingEmail = normalised
+  let corrected = false
+  let original: string | undefined
+  let suggested: string | undefined
 
   // Role-based detection (compute early, include in all return paths)
-  const isRoleBased = rolePrefixes.has(localPart);
+  const isRoleBased = rolePrefixes.has(localPart)
 
   // Domain typo correction
-  const typoResult = correctDomain(localPart, domain);
+  const typoResult = correctDomain(localPart, domain)
   if (typoResult) {
-    original = normalised;
-    suggested = typoResult.correctedEmail;
-    workingEmail = typoResult.correctedEmail;
-    domain = typoResult.correctedDomain;
-    corrected = true;
+    original = normalised
+    suggested = typoResult.correctedEmail
+    workingEmail = typoResult.correctedEmail
+    domain = typoResult.correctedDomain
+    corrected = true
   }
 
   // Format check
@@ -166,16 +164,16 @@ export async function validateEmail(
       corrected: corrected || undefined,
       original,
       suggested,
-    };
+    }
   }
 
-  const cachedMxResult = mxCache.get(domain);
-  const cachedMx = cachedMxResult?.hasMx ?? null;
-  const cachedBlanketReject = cachedMxResult?.blanketReject;
+  const cachedMxResult = mxCache.get(domain)
+  const cachedMx = cachedMxResult?.hasMx ?? null
+  const cachedBlanketReject = cachedMxResult?.blanketReject
 
   // If domain is a known blanket rejector, skip SMTP and return medium confidence
   if (mode === 'single' && cachedBlanketReject === true) {
-    let deepResult: Awaited<ReturnType<typeof validate>>;
+    let deepResult: Awaited<ReturnType<typeof validate>>
     try {
       deepResult = await validate({
         email: workingEmail,
@@ -185,7 +183,7 @@ export async function validateEmail(
         validateTypo: true,
         validateDisposable: true,
         validateSMTP: false,
-      });
+      })
     } catch {
       return {
         valid: true,
@@ -195,16 +193,16 @@ export async function validateEmail(
         corrected: corrected || undefined,
         original,
         suggested,
-      };
+      }
     }
 
-    const validators = deepResult.validators;
-    const regexOk = validators.regex?.valid ?? true;
-    const disposableOk = validators.disposable?.valid ?? true;
-    const mxOk = cachedMx !== null ? cachedMx : (validators.mx?.valid ?? false);
+    const validators = deepResult.validators
+    const regexOk = validators.regex?.valid ?? true
+    const disposableOk = validators.disposable?.valid ?? true
+    const mxOk = cachedMx !== null ? cachedMx : (validators.mx?.valid ?? false)
 
     if (!regexOk || (!disposableOk && !isAllowlistedTLD(domain, musicTLDs)) || !mxOk) {
-      const reason = !regexOk ? 'invalid_format' : !mxOk ? 'no_mx_record' : 'disposable_domain';
+      const reason = !regexOk ? 'invalid_format' : !mxOk ? 'no_mx_record' : 'disposable_domain'
       return {
         valid: false,
         normalised: workingEmail,
@@ -214,7 +212,7 @@ export async function validateEmail(
         corrected: corrected || undefined,
         original,
         suggested,
-      };
+      }
     }
 
     return {
@@ -231,10 +229,10 @@ export async function validateEmail(
         disposable: disposableOk,
         mx: mxOk,
       },
-    };
+    }
   }
 
-  let deepResult: Awaited<ReturnType<typeof validate>>;
+  let deepResult: Awaited<ReturnType<typeof validate>>
   try {
     const validationPromise = validate({
       email: workingEmail,
@@ -244,14 +242,14 @@ export async function validateEmail(
       validateTypo: true,
       validateDisposable: true,
       validateSMTP: mode === 'single',
-    });
+    })
 
     deepResult = await Promise.race([
       validationPromise,
       new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('smtp_timeout')), smtpTimeout)
+        setTimeout(() => reject(new Error('smtp_timeout')), smtpTimeout),
       ),
-    ]);
+    ])
   } catch (err) {
     if (err instanceof Error && err.message === 'smtp_timeout') {
       return {
@@ -263,7 +261,7 @@ export async function validateEmail(
         original,
         suggested,
         checks: { regex: true, typo: true, disposable: true, mx: cachedMx ?? true },
-      };
+      }
     }
     return {
       valid: false,
@@ -274,18 +272,18 @@ export async function validateEmail(
       corrected: corrected || undefined,
       original,
       suggested,
-    };
+    }
   }
 
-  const validators = deepResult.validators;
-  const regexOk = validators.regex?.valid ?? true;
-  const typoOk = validators.typo?.valid ?? true;
-  const disposableOk = validators.disposable?.valid ?? true;
-  const mxOk = cachedMx !== null ? cachedMx : (validators.mx?.valid ?? false);
-  const smtpOk = mode === 'single' ? (validators.smtp?.valid ?? undefined) : undefined;
+  const validators = deepResult.validators
+  const regexOk = validators.regex?.valid ?? true
+  const typoOk = validators.typo?.valid ?? true
+  const disposableOk = validators.disposable?.valid ?? true
+  const mxOk = cachedMx !== null ? cachedMx : (validators.mx?.valid ?? false)
+  const smtpOk = mode === 'single' ? (validators.smtp?.valid ?? undefined) : undefined
 
   if (cachedMxResult === null) {
-    mxCache.set(domain, mxOk);
+    mxCache.set(domain, mxOk)
   }
 
   if (!regexOk) {
@@ -299,7 +297,7 @@ export async function validateEmail(
       original,
       suggested,
       checks: { regex: false, typo: typoOk, disposable: disposableOk, mx: mxOk },
-    };
+    }
   }
 
   if (!disposableOk && !isAllowlistedTLD(domain, musicTLDs)) {
@@ -314,7 +312,7 @@ export async function validateEmail(
       original,
       suggested,
       checks: { regex: regexOk, typo: typoOk, disposable: false, mx: mxOk },
-    };
+    }
   }
 
   if (mode === 'single' && smtpOk === false) {
@@ -335,7 +333,7 @@ export async function validateEmail(
         mx: mxOk,
         smtp: false,
       },
-    };
+    }
   }
 
   if (!mxOk) {
@@ -349,20 +347,20 @@ export async function validateEmail(
       original,
       suggested,
       checks: { regex: regexOk, typo: typoOk, disposable: disposableOk, mx: false },
-    };
+    }
   }
 
-  const isCatchAll = catchAllDomains.has(domain);
+  const isCatchAll = catchAllDomains.has(domain)
 
-  let confidence: EmailResult['confidence'];
+  let confidence: EmailResult['confidence']
   if (isRoleBased || isCatchAll) {
-    confidence = 'medium';
+    confidence = 'medium'
   } else if (mode === 'single' && smtpOk === true) {
-    confidence = 'high';
+    confidence = 'high'
   } else if (mode === 'batch') {
-    confidence = 'high';
+    confidence = 'high'
   } else {
-    confidence = 'medium';
+    confidence = 'medium'
   }
 
   return {
@@ -383,7 +381,7 @@ export async function validateEmail(
       mx: mxOk,
       smtp: smtpOk,
     },
-  };
+  }
 }
 
 /**
@@ -392,100 +390,94 @@ export async function validateEmail(
  */
 export async function validateEmailBatch(
   emails: string[],
-  config: ValidateConfig = {}
+  config: ValidateConfig = {},
 ): Promise<Map<string, EmailResult>> {
-  const {
-    smtp = false,
-    smtpTimeout = 10_000,
-    onProgress,
-  } = config;
-  const concurrency = 10;
-  const mxCache = new MxCache(config.mxCacheTTL);
-  const results = new Map<string, EmailResult>();
-  let completed = 0;
+  const { smtp = false, smtpTimeout = 10_000, onProgress } = config
+  const concurrency = 10
+  const mxCache = new MxCache(config.mxCacheTTL)
+  const results = new Map<string, EmailResult>()
+  let completed = 0
 
-  const catchAllDomains = new Set(config.catchAllDomains ?? DEFAULT_CATCH_ALL);
+  const catchAllDomains = new Set(config.catchAllDomains ?? DEFAULT_CATCH_ALL)
 
   // Group by domain
-  const byDomain = new Map<string, string[]>();
+  const byDomain = new Map<string, string[]>()
   for (const email of emails) {
-    const normalised = email.toLowerCase().trim();
-    const atIndex = normalised.indexOf('@');
+    const normalised = email.toLowerCase().trim()
+    const atIndex = normalised.indexOf('@')
     if (atIndex === -1) {
-      const bucket = byDomain.get('') ?? [];
-      bucket.push(email);
-      byDomain.set('', bucket);
-      continue;
+      const bucket = byDomain.get('') ?? []
+      bucket.push(email)
+      byDomain.set('', bucket)
+      continue
     }
-    let domain = normalised.slice(atIndex + 1);
-    const localPart = normalised.slice(0, atIndex);
-    const typo = correctDomain(localPart, domain);
-    if (typo) domain = typo.correctedDomain;
+    let domain = normalised.slice(atIndex + 1)
+    const localPart = normalised.slice(0, atIndex)
+    const typo = correctDomain(localPart, domain)
+    if (typo) domain = typo.correctedDomain
 
-    const bucket = byDomain.get(domain) ?? [];
-    bucket.push(email);
-    byDomain.set(domain, bucket);
+    const bucket = byDomain.get(domain) ?? []
+    bucket.push(email)
+    byDomain.set(domain, bucket)
   }
 
   // Blanket-reject pre-pass when SMTP is enabled
   if (smtp) {
-    const domainsToProbe = [...byDomain.keys()].filter(d => {
-      if (!d) return false;
-      if (catchAllDomains.has(d)) return false;
-      const cached = mxCache.get(d);
-      if (cached !== null && cached.blanketReject !== undefined) return false;
-      return true;
-    });
+    const domainsToProbe = [...byDomain.keys()].filter((d) => {
+      if (!d) return false
+      if (catchAllDomains.has(d)) return false
+      const cached = mxCache.get(d)
+      if (cached !== null && cached.blanketReject !== undefined) return false
+      return true
+    })
 
-    const probeQueue = [...domainsToProbe];
+    const probeQueue = [...domainsToProbe]
     async function probeNext(): Promise<void> {
       while (probeQueue.length > 0) {
-        const domain = probeQueue.shift()!;
-        const isBlanketReject = await probeBlanketReject(domain, smtpTimeout);
+        const domain = probeQueue.shift()!
+        const isBlanketReject = await probeBlanketReject(domain, smtpTimeout)
         if (isBlanketReject) {
-          const existing = mxCache.get(domain);
-          mxCache.set(domain, existing?.hasMx ?? true, true);
+          const existing = mxCache.get(domain)
+          mxCache.set(domain, existing?.hasMx ?? true, true)
         } else {
-          const existing = mxCache.get(domain);
+          const existing = mxCache.get(domain)
           if (existing) {
-            mxCache.set(domain, existing.hasMx, false);
+            mxCache.set(domain, existing.hasMx, false)
           }
         }
       }
     }
 
     const probeWorkers = Array.from({ length: Math.min(5, domainsToProbe.length) }, () =>
-      probeNext()
-    );
-    await Promise.allSettled(probeWorkers);
+      probeNext(),
+    )
+    await Promise.allSettled(probeWorkers)
   }
 
   // Process first email per domain, then remainder (for cache priming)
-  const firstPerDomain: string[] = [];
-  const remainder: string[] = [];
+  const firstPerDomain: string[] = []
+  const remainder: string[] = []
   for (const bucket of byDomain.values()) {
-    const [first, ...rest] = bucket;
-    firstPerDomain.push(first);
-    remainder.push(...rest);
+    const [first, ...rest] = bucket
+    firstPerDomain.push(first)
+    remainder.push(...rest)
   }
 
-  const ordered = [...firstPerDomain, ...remainder];
-  const queue = [...ordered];
+  const ordered = [...firstPerDomain, ...remainder]
+  const queue = [...ordered]
 
   async function processNext(): Promise<void> {
     while (queue.length > 0) {
-      const email = queue.shift()!;
-      const result = await validateEmail(email, { ...config, mxCache });
-      results.set(email, result);
-      completed++;
-      onProgress?.(email, result, completed, ordered.length);
+      const email = queue.shift()!
+      const result = await validateEmail(email, { ...config, mxCache })
+      results.set(email, result)
+      completed++
+      onProgress?.(email, result, completed, ordered.length)
     }
   }
 
-  const workers = Array.from({ length: Math.min(concurrency, ordered.length) }, () =>
-    processNext()
-  );
-  await Promise.allSettled(workers);
+  const workers = Array.from({ length: Math.min(concurrency, ordered.length) }, () => processNext())
+  await Promise.allSettled(workers)
 
-  return results;
+  return results
 }

@@ -197,8 +197,7 @@ async function runPhases(
   }
 
   const format = opts.format ?? 'csv'
-  const outPath =
-    opts.output ?? deriveOutputPath(label, rawPath, '-clean', format)
+  const outPath = opts.output ?? deriveOutputPath(label, rawPath, '-clean', format)
 
   if (!opts.dryRun) {
     writeOutput(processed, outPath, format)
@@ -309,7 +308,9 @@ async function runTui(
   if (providerName) config.soak.provider = providerName
   if (providerName && providerModel) {
     ;(config.soak as Record<string, unknown>)[providerName] = {
-      ...((config.soak as Record<string, unknown>)[providerName] as Record<string, unknown> | undefined),
+      ...((config.soak as Record<string, unknown>)[providerName] as
+        | Record<string, unknown>
+        | undefined),
       model: providerModel,
     }
   }
@@ -332,8 +333,7 @@ async function runDrain(
 
   const records = parseInputText(text)
   const format = opts.format ?? 'csv'
-  const outPath =
-    opts.output ?? deriveOutputPath(label, rawPath, '-converted', format)
+  const outPath = opts.output ?? deriveOutputPath(label, rawPath, '-converted', format)
 
   let content: string
   switch (format) {
@@ -410,9 +410,7 @@ const globalOpts = (cmd: typeof program) =>
     .option('--url <url>', 'fetch CSV from a URL')
 
 globalOpts(
-  program
-    .command('wash [file]')
-    .description('Full pipeline: scrub, rinse, soak, steep'),
+  program.command('wash [file]').description('Full pipeline: scrub, rinse, soak, steep'),
 ).action((file: string | undefined, opts: Record<string, unknown>) => {
   runPhases(file, ['scrub', 'rinse', 'soak', 'steep'], opts as Parameters<typeof runPhases>[2])
 })
@@ -518,7 +516,9 @@ program.action(async () => {
       if (providerName) config.soak.provider = providerName
       if (providerName && providerModel) {
         ;(config.soak as Record<string, unknown>)[providerName] = {
-          ...((config.soak as Record<string, unknown>)[providerName] as Record<string, unknown> | undefined),
+          ...((config.soak as Record<string, unknown>)[providerName] as
+            | Record<string, unknown>
+            | undefined),
           model: providerModel,
         }
       }

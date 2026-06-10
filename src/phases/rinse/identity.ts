@@ -1,35 +1,28 @@
-import type { SinkRecord } from '../../types.js';
+import type { SinkRecord } from '../../types.js'
 
 /**
  * Cross-field matching: find records with matching phone or website
  * across different email addresses.
  */
 export function crossFieldMatch(records: SinkRecord[]): SinkRecord[] {
-  const result = [...records];
+  const result = [...records]
 
   // Build phone index
-  const byPhone = new Map<string, number>();
+  const byPhone = new Map<string, number>()
   for (let i = 0; i < result.length; i++) {
-    if (result[i].rinse?.duplicate) continue;
-    const phone = result[i].raw.phone?.replace(/[\s\-()]/g, '');
-    if (!phone || phone.length < 6) continue;
+    if (result[i].rinse?.duplicate) continue
+    const phone = result[i].raw.phone?.replace(/[\s\-()]/g, '')
+    if (!phone || phone.length < 6) continue
 
-    const existing = byPhone.get(phone);
+    const existing = byPhone.get(phone)
     if (existing !== undefined) {
       // Same phone, different email -- potential cross-field match
-      const existingEmail =
-        result[existing].scrub?.email.normalised ||
-        result[existing].raw.email;
-      const currentEmail =
-        result[i].scrub?.email.normalised || result[i].raw.email;
+      const existingEmail = result[existing].scrub?.email.normalised || result[existing].raw.email
+      const currentEmail = result[i].scrub?.email.normalised || result[i].raw.email
       if (existingEmail !== currentEmail) {
         // Mark the one with fewer fields as duplicate
-        const countExisting = Object.values(
-          result[existing].raw,
-        ).filter(Boolean).length;
-        const countCurrent = Object.values(result[i].raw).filter(
-          Boolean,
-        ).length;
+        const countExisting = Object.values(result[existing].raw).filter(Boolean).length
+        const countCurrent = Object.values(result[i].raw).filter(Boolean).length
         if (countCurrent <= countExisting) {
           result[i] = {
             ...result[i],
@@ -40,7 +33,7 @@ export function crossFieldMatch(records: SinkRecord[]): SinkRecord[] {
               matchConfidence: 0.85,
               canonical: false,
             },
-          };
+          }
         } else {
           result[existing] = {
             ...result[existing],
@@ -51,14 +44,14 @@ export function crossFieldMatch(records: SinkRecord[]): SinkRecord[] {
               matchConfidence: 0.85,
               canonical: false,
             },
-          };
-          byPhone.set(phone, i);
+          }
+          byPhone.set(phone, i)
         }
       }
     } else {
-      byPhone.set(phone, i);
+      byPhone.set(phone, i)
     }
   }
 
-  return result;
+  return result
 }

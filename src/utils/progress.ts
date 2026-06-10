@@ -1,1 +1,1 @@
-export type { PhaseProgress } from '../types.js';
+export type { PhaseProgress } from '../types.js'

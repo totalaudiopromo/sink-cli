@@ -1,69 +1,63 @@
-import type {
-  Phase,
-  PhaseProgress,
-  SinkConfig,
-  SinkRecord,
-  SinkStats,
-} from './types.js';
+import type { Phase, PhaseProgress, SinkConfig, SinkRecord, SinkStats } from './types.js'
 
 type PhaseRunner = (
   records: SinkRecord[],
   config: SinkConfig,
-  onProgress?: (progress: PhaseProgress) => void
-) => Promise<SinkRecord[]>;
+  onProgress?: (progress: PhaseProgress) => void,
+) => Promise<SinkRecord[]>
 
 const phaseRunners: Record<Phase, PhaseRunner | null> = {
   scrub: null,
   rinse: null,
   soak: null,
   steep: null,
-};
+}
 
 /**
  * Register a phase runner. Called by each phase module on import.
  */
 export function registerPhase(phase: Phase, runner: PhaseRunner): void {
-  phaseRunners[phase] = runner;
+  phaseRunners[phase] = runner
 }
 
 /**
  * Lazily load phase runners on first use.
  */
 async function ensurePhase(phase: Phase): Promise<PhaseRunner> {
-  if (phaseRunners[phase]) return phaseRunners[phase];
+  if (phaseRunners[phase]) return phaseRunners[phase]
 
   switch (phase) {
     case 'scrub': {
-      const mod = await import('./phases/scrub/index.js');
-      registerPhase('scrub', mod.scrub);
-      break;
+      const mod = await import('./phases/scrub/index.js')
+      registerPhase('scrub', mod.scrub)
+      break
     }
     case 'rinse': {
-      const mod = await import('./phases/rinse/index.js');
-      registerPhase('rinse', mod.rinse);
-      break;
+      const mod = await import('./phases/rinse/index.js')
+      registerPhase('rinse', mod.rinse)
+      break
     }
     case 'soak': {
-      const mod = await import('./phases/soak/index.js');
-      registerPhase('soak', mod.soak);
-      break;
+      const mod = await import('./phases/soak/index.js')
+      registerPhase('soak', mod.soak)
+      break
     }
     case 'steep': {
-      const mod = await import('./phases/steep/index.js');
-      registerPhase('steep', mod.steep);
-      break;
+      const mod = await import('./phases/steep/index.js')
+      registerPhase('steep', mod.steep)
+      break
     }
   }
 
-  const runner = phaseRunners[phase];
-  if (!runner) throw new Error(`Phase '${phase}' not found`);
-  return runner;
+  const runner = phaseRunners[phase]
+  if (!runner) throw new Error(`Phase '${phase}' not found`)
+  return runner
 }
 
 export interface PipelineOptions {
-  phases: Phase[];
-  config: SinkConfig;
-  onProgress?: (phase: Phase, progress: PhaseProgress) => void;
+  phases: Phase[]
+  config: SinkConfig
+  onProgress?: (phase: Phase, progress: PhaseProgress) => void
 }
 
 /**
@@ -83,61 +77,61 @@ function computeStats(records: SinkRecord[], durationMs: number): SinkStats {
       failed: 0,
     },
     duration: durationMs,
-  };
+  }
 
-  const steepOutletsSeen = new Set<string>();
+  const steepOutletsSeen = new Set<string>()
 
-  const domains = new Set<string>();
+  const domains = new Set<string>()
 
   for (const record of records) {
     if (record.scrub) {
-      const { email } = record.scrub;
+      const { email } = record.scrub
       if (!email.valid) {
-        stats.scrub.invalid++;
+        stats.scrub.invalid++
       } else if (email.confidence === 'medium') {
-        stats.scrub.risky++;
+        stats.scrub.risky++
       } else {
-        stats.scrub.valid++;
+        stats.scrub.valid++
       }
-      if (email.corrected) stats.scrub.typos++;
-      const atIdx = email.normalised.indexOf('@');
-      if (atIdx !== -1) domains.add(email.normalised.slice(atIdx + 1));
+      if (email.corrected) stats.scrub.typos++
+      const atIdx = email.normalised.indexOf('@')
+      if (atIdx !== -1) domains.add(email.normalised.slice(atIdx + 1))
     }
 
     if (record.rinse) {
-      if (record.rinse.duplicate) stats.rinse.duplicates++;
-      if (record.rinse.mergedWith) stats.rinse.merged++;
-      if (record.rinse.matchType === 'fuzzy-name') stats.rinse.fuzzyMatches++;
+      if (record.rinse.duplicate) stats.rinse.duplicates++
+      if (record.rinse.mergedWith) stats.rinse.merged++
+      if (record.rinse.matchType === 'fuzzy-name') stats.rinse.fuzzyMatches++
     }
 
     if (record.phases.includes('soak')) {
       if (record.soak && record.soak.confidence !== 'none') {
-        stats.soak.enriched++;
+        stats.soak.enriched++
       } else if (record.scrub?.email.valid === false || record.rinse?.duplicate) {
-        stats.soak.skipped++;
+        stats.soak.skipped++
       } else {
-        stats.soak.failed++;
+        stats.soak.failed++
       }
     }
 
     if (record.phases.includes('steep')) {
       if (record.steep) {
-        const domain = record.steep.outletDomain;
+        const domain = record.steep.outletDomain
         if (!steepOutletsSeen.has(domain)) {
-          steepOutletsSeen.add(domain);
-          if (record.steep.cacheAge > 0) stats.steep.outletsFromCache++;
-          else if (record.steep.confidence.overall === 'none') stats.steep.failed++;
-          else stats.steep.outletsScraped++;
+          steepOutletsSeen.add(domain)
+          if (record.steep.cacheAge > 0) stats.steep.outletsFromCache++
+          else if (record.steep.confidence.overall === 'none') stats.steep.failed++
+          else stats.steep.outletsScraped++
         }
-        if (record.steep.confirmedAtOutlet) stats.steep.contactsMatched++;
+        if (record.steep.confirmedAtOutlet) stats.steep.contactsMatched++
       } else {
-        stats.steep.skipped++;
+        stats.steep.skipped++
       }
     }
   }
 
-  stats.scrub.domains = domains.size;
-  return stats;
+  stats.scrub.domains = domains.size
+  return stats
 }
 
 /**
@@ -145,18 +139,18 @@ function computeStats(records: SinkRecord[], durationMs: number): SinkStats {
  */
 export async function runPipeline(
   records: SinkRecord[],
-  options: PipelineOptions
+  options: PipelineOptions,
 ): Promise<{ records: SinkRecord[]; stats: SinkStats }> {
-  const start = Date.now();
-  let current = records;
+  const start = Date.now()
+  let current = records
 
   for (const phase of options.phases) {
-    const runner = await ensurePhase(phase);
+    const runner = await ensurePhase(phase)
     current = await runner(current, options.config, (progress) => {
-      options.onProgress?.(phase, progress);
-    });
+      options.onProgress?.(phase, progress)
+    })
   }
 
-  const duration = Date.now() - start;
-  return { records: current, stats: computeStats(current, duration) };
+  const duration = Date.now() - start
+  return { records: current, stats: computeStats(current, duration) }
 }

@@ -34,7 +34,5 @@ export function outletToDomain(input: string): string {
   }
 
   // Fall back to a slug (will not collide with real domains because no dot)
-  return trimmed
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
+  return trimmed.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
 }

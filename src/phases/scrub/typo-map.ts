@@ -1,5 +1,5 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 const DEFAULT_TYPO_MAP: Record<string, string> = {
   'bbc.co.k': 'bbc.co.uk',
@@ -21,30 +21,30 @@ const DEFAULT_TYPO_MAP: Record<string, string> = {
   'hotmial.com': 'hotmail.com',
   'yaho.com': 'yahoo.com',
   'yahooo.com': 'yahoo.com',
-};
+}
 
-let activeMap: Record<string, string> = { ...DEFAULT_TYPO_MAP };
+let activeMap: Record<string, string> = { ...DEFAULT_TYPO_MAP }
 
 export function loadTypoMap(customPath?: string): Record<string, string> {
   if (customPath) {
-    const text = readFileSync(resolve(customPath), 'utf-8');
-    const custom = JSON.parse(text) as Record<string, string>;
-    activeMap = { ...DEFAULT_TYPO_MAP, ...custom };
+    const text = readFileSync(resolve(customPath), 'utf-8')
+    const custom = JSON.parse(text) as Record<string, string>
+    activeMap = { ...DEFAULT_TYPO_MAP, ...custom }
   } else {
-    activeMap = { ...DEFAULT_TYPO_MAP };
+    activeMap = { ...DEFAULT_TYPO_MAP }
   }
-  return activeMap;
+  return activeMap
 }
 
 export function getTypoMap(): Record<string, string> {
-  return activeMap;
+  return activeMap
 }
 
 export function correctDomain(
   localPart: string,
-  domain: string
+  domain: string,
 ): { correctedEmail: string; correctedDomain: string } | null {
-  const corrected = activeMap[domain];
-  if (!corrected) return null;
-  return { correctedEmail: `${localPart}@${corrected}`, correctedDomain: corrected };
+  const corrected = activeMap[domain]
+  if (!corrected) return null
+  return { correctedEmail: `${localPart}@${corrected}`, correctedDomain: corrected }
 }

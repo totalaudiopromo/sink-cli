@@ -134,7 +134,10 @@ export async function runInteractive(): Promise<{
     value: '__paste__',
     label: `${chalk.yellow('\u270E')} ${chalk.bold('Paste CSV data')}  ${chalk.dim('(paste rows directly)')}`,
   })
-  inputOptions.push({ value: '__url__', label: chalk.dim('Paste a URL (Google Sheets, Dropbox, etc.)') })
+  inputOptions.push({
+    value: '__url__',
+    label: chalk.dim('Paste a URL (Google Sheets, Dropbox, etc.)'),
+  })
   inputOptions.push({
     value: '__custom__',
     label: chalk.dim('Enter path manually...'),
@@ -158,7 +161,7 @@ export async function runInteractive(): Promise<{
       validate: (value) => {
         if (!value?.trim()) return 'Please paste some CSV data.'
         if (!value.includes(',') && !value.includes('\t')) {
-          return 'That doesn\'t look like CSV. Include commas between fields.'
+          return "That doesn't look like CSV. Include commas between fields."
         }
       },
     })
@@ -262,10 +265,8 @@ export async function runInteractive(): Promise<{
 
         // If API key is missing, offer to enter it inline
         const needsAnthropic =
-          (provider === 'haiku' || provider === 'sonnet' || provider === 'opus') &&
-          !hasAnthropicKey
-        const needsOpenAI =
-          (provider === 'gpt-4o-mini' || provider === 'codex') && !hasOpenAIKey
+          (provider === 'haiku' || provider === 'sonnet' || provider === 'opus') && !hasAnthropicKey
+        const needsOpenAI = (provider === 'gpt-4o-mini' || provider === 'codex') && !hasOpenAIKey
 
         if (needsAnthropic || needsOpenAI) {
           const envVar = needsAnthropic ? 'ANTHROPIC_API_KEY' : 'OPENAI_API_KEY'
