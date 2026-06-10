@@ -122,6 +122,15 @@ async function runPhases(
 
   if (opts.noColour) chalk.level = 0
 
+  if (opts.smtp && !opts.quiet && !opts.json) {
+    console.warn(
+      chalk.yellow(
+        '\n  Note: SMTP mailbox verification was removed in 0.3.0 (providers block or mislead probes).\n' +
+          '  MX-level domain verification always runs and covers dead/typo domains.\n',
+      ),
+    )
+  }
+
   const { provider: providerName, model: providerModel } = resolveProvider(opts.provider)
 
   const config = await loadConfig({
@@ -220,7 +229,7 @@ async function runSpot(email: string): Promise<void> {
 
   const { validateEmail } = await import('./phases/scrub/validate.js')
   const { MxCache } = await import('./utils/mx-cache.js')
-  const result = await validateEmail(email, { smtp: true, mxCache: new MxCache() })
+  const result = await validateEmail(email, { mxCache: new MxCache() })
 
   step(`Valid:       ${result.valid ? chalk.green('yes') : chalk.red('no')}`)
   step(`Normalised:  ${result.normalised}`)
@@ -234,8 +243,8 @@ async function runSpot(email: string): Promise<void> {
   if (result.roleBased) step(`Role-based:  ${chalk.yellow('yes')}`)
   if (result.catchAll) step(`Catch-all:   ${chalk.yellow('yes')}`)
   if (result.disposable) step(`Disposable:  ${chalk.red('yes')}`)
-  if (result.smtpVerified !== undefined) {
-    step(`SMTP:        ${result.smtpVerified ? chalk.green('verified') : chalk.red('rejected')}`)
+  if (result.checks?.mx !== undefined) {
+    step(`MX record:   ${result.checks.mx ? chalk.green('found') : chalk.red('none')}`)
   }
 
   blank()
@@ -403,7 +412,7 @@ const globalOpts = (cmd: typeof program) =>
     .option('-q, --quiet', 'suppress all output except errors')
     .option('--json', 'JSON stdout (for piping)')
     .option('--no-colour', 'disable colours')
-    .option('--smtp', 'enable SMTP verification')
+    .option('--smtp', '(deprecated, no-op) SMTP verification removed in 0.3.0')
     .option('--provider <name>', 'enrichment provider (haiku|sonnet|opus|codex|gpt-4o-mini)')
     .option('--demo', 'use built-in sample data (no file needed)')
     .option('--url <url>', 'fetch CSV from a URL')
@@ -445,7 +454,7 @@ program
   .command('demo')
   .description('Run the full pipeline on sample data (no file needed)')
   .option('--provider <name>', 'enrichment provider (haiku|sonnet|opus|codex|gpt-4o-mini)')
-  .option('--smtp', 'enable SMTP verification')
+  .option('--smtp', '(deprecated, no-op) SMTP verification removed in 0.3.0')
   .option('--verbose', 'detailed output')
   .option('--no-colour', 'disable colours')
   .action((opts: Record<string, unknown>) =>
@@ -467,7 +476,7 @@ program
 
 program
   .command('spot <email>')
-  .description('Spot-check a single email address (with SMTP check)')
+  .description('Spot-check a single email address (format, typo, role, MX)')
   .action(runSpot)
 
 program
@@ -480,7 +489,7 @@ program
 program
   .command('tui [file]')
   .description('Launch the full TUI dashboard')
-  .option('--smtp', 'enable SMTP verification')
+  .option('--smtp', '(deprecated, no-op) SMTP verification removed in 0.3.0')
   .option('--provider <name>', 'enrichment provider')
   .option('--config <path>', 'config file path')
   .option('--demo', 'use built-in sample data')

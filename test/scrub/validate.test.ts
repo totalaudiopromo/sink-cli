@@ -1,24 +1,10 @@
 import { describe, it, expect, vi } from 'vitest'
 import { MxCache } from '../../src/utils/mx-cache.js'
 
-// Mock deep-email-validator to avoid real DNS/SMTP calls in tests
-vi.mock('deep-email-validator', () => ({
-  validate: vi.fn(async ({ email }: { email: string }) => {
-    const domain = email.split('@')[1]
-    const isDisposable = domain === 'tempmail.com'
-    const hasMx = domain !== 'nxdomain.invalid'
-
-    return {
-      valid: hasMx && !isDisposable,
-      validators: {
-        regex: { valid: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) },
-        typo: { valid: true },
-        disposable: { valid: !isDisposable },
-        mx: { valid: hasMx },
-        smtp: { valid: true },
-      },
-    }
-  }),
+// Mock the network layer so tests never perform real DNS lookups.
+// nxdomain.invalid is the no-MX sentinel; everything else has MX.
+vi.mock('../../src/phases/scrub/net.js', () => ({
+  hasMxRecord: vi.fn(async (domain: string) => domain !== 'nxdomain.invalid'),
 }))
 
 // Import after mock is set up
@@ -52,6 +38,26 @@ describe('validateEmail', () => {
     expect(result.valid).toBe(false)
   })
 
+  it('rejects a domain with no MX record', async () => {
+    const result = await validateEmail('ghost@nxdomain.invalid', { mxCache: makeMxCache() })
+
+    expect(result.valid).toBe(false)
+    expect(result.reason).toBe('no_mx_record')
+    expect(result.confidence).toBe('low')
+  })
+
+  it('serves repeat domains from the MX cache', async () => {
+    const { hasMxRecord } = await import('../../src/phases/scrub/net.js')
+    const spy = vi.mocked(hasMxRecord)
+    spy.mockClear()
+
+    const cache = makeMxCache()
+    await validateEmail('one@example.com', { mxCache: cache })
+    await validateEmail('two@example.com', { mxCache: cache })
+
+    expect(spy).toHaveBeenCalledTimes(1)
+  })
+
   it('corrects gmial.com typo', async () => {
     const result = await validateEmail('alice@gmial.com', { mxCache: makeMxCache() })
 
@@ -69,12 +75,17 @@ describe('validateEmail', () => {
     expect(result.confidence).toBe('medium')
   })
 
-  it('detects disposable domains', async () => {
+  it('detects disposable domains without a network call', async () => {
+    const { hasMxRecord } = await import('../../src/phases/scrub/net.js')
+    const spy = vi.mocked(hasMxRecord)
+    spy.mockClear()
+
     const result = await validateEmail('test@tempmail.com', { mxCache: makeMxCache() })
 
     expect(result.valid).toBe(false)
     expect(result.disposable).toBe(true)
     expect(result.reason).toBe('disposable_domain')
+    expect(spy).not.toHaveBeenCalled()
   })
 
   it('normalises email to lowercase', async () => {
@@ -90,6 +101,16 @@ describe('validateEmail', () => {
     })
 
     expect(result.roleBased).toBe(true)
+  })
+
+  it('gives high confidence to a non-role, non-catch-all address with MX', async () => {
+    const result = await validateEmail('sarah.jones@amazingradio.com', {
+      mxCache: makeMxCache(),
+    })
+
+    expect(result.valid).toBe(true)
+    expect(result.confidence).toBe('high')
+    expect(result.checks?.mx).toBe(true)
   })
 })
 

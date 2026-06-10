@@ -218,8 +218,11 @@ export interface SinkConfig {
     rolePrefixes?: string[]
     catchAllDomains?: string[]
     musicTLDs?: string[]
+    /** MX cache TTL in seconds (default: 1800) */
     mxCacheTTL?: number
+    /** @deprecated SMTP verification was removed in 0.3.0; ignored. */
     smtpTimeout?: number
+    /** @deprecated SMTP verification was removed in 0.3.0; ignored. */
     smtp?: boolean
   }
   rinse: {

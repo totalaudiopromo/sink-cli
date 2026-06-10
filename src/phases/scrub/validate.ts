@@ -1,18 +1,24 @@
 /**
  * Email validation engine
  *
- * Wraps deep-email-validator with music-industry extras:
- * - Configurable domain typo correction
- * - Role-based email detection (press@, info@, etc.)
- * - Catch-all domain flagging
- * - MX cache layer (configurable TTL)
+ * Native implementation with music-industry extras:
+ * - RFC 5322 format validation (pure)
+ * - Configurable domain typo correction (pure)
+ * - Role-based email detection (press@, info@, etc.) (pure)
+ * - Disposable domain detection via a vendored list (pure)
+ * - Catch-all domain flagging (pure)
+ * - MX record verification with a cache layer (Node-only, see net.ts)
  * - Domain-grouped batch validation for efficiency
- * - Two modes: batch (no SMTP) and single (full SMTP check)
+ *
+ * The pure checks have no Node dependencies; everything network-bound is
+ * isolated in net.ts so this module can back a browser build with the MX
+ * check stubbed out.
  */
 
-import { validate } from 'deep-email-validator'
 import { MxCache } from '../../utils/mx-cache.js'
 import { correctDomain } from './typo-map.js'
+import { isDisposableDomain } from './disposable.js'
+import { hasMxRecord } from './net.js'
 import type { ScrubResult } from '../../types.js'
 
 type EmailResult = ScrubResult['email']
@@ -70,7 +76,12 @@ const DEFAULT_CATCH_ALL = [
 ]
 
 export interface ValidateConfig {
+  /**
+   * Accepted for backwards compatibility; SMTP verification was removed in
+   * 0.3.0 (see net.ts). MX-level checks always run.
+   */
   smtp?: boolean
+  /** Accepted for backwards compatibility; unused since SMTP removal. */
   smtpTimeout?: number
   rolePrefixes?: string[]
   catchAllDomains?: string[]
@@ -90,43 +101,15 @@ function isAllowlistedTLD(domain: string, musicTLDs: string[]): boolean {
   return musicTLDs.some((tld) => domain.endsWith(tld))
 }
 
-async function probeBlanketReject(domain: string, smtpTimeout: number): Promise<boolean> {
-  const fakeLocal = `sink-probe-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
-  const fakeEmail = `${fakeLocal}@${domain}`
-
-  try {
-    const result = await Promise.race([
-      validate({
-        email: fakeEmail,
-        sender: fakeEmail,
-        validateRegex: true,
-        validateMx: true,
-        validateTypo: false,
-        validateDisposable: false,
-        validateSMTP: true,
-      }),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('smtp_timeout')), smtpTimeout),
-      ),
-    ])
-
-    const smtpOk = result.validators.smtp?.valid ?? undefined
-    return smtpOk === false
-  } catch {
-    return false
-  }
-}
-
 export async function validateEmail(
   email: string,
   config: ValidateConfig & { mxCache: MxCache },
 ): Promise<EmailResult> {
-  const { smtp = false, smtpTimeout = 10_000, mxCache } = config
+  const { mxCache } = config
   const rolePrefixes = new Set(config.rolePrefixes ?? DEFAULT_ROLE_PREFIXES)
   const musicTLDs = config.musicTLDs ?? DEFAULT_MUSIC_TLDS
   const catchAllDomains = new Set(config.catchAllDomains ?? DEFAULT_CATCH_ALL)
 
-  const mode = smtp ? 'single' : 'batch'
   const normalised = email.toLowerCase().trim()
 
   const atIndex = normalised.indexOf('@')
@@ -141,7 +124,6 @@ export async function validateEmail(
   let original: string | undefined
   let suggested: string | undefined
 
-  // Role-based detection (compute early, include in all return paths)
   const isRoleBased = rolePrefixes.has(localPart)
 
   // Domain typo correction
@@ -167,140 +149,8 @@ export async function validateEmail(
     }
   }
 
-  const cachedMxResult = mxCache.get(domain)
-  const cachedMx = cachedMxResult?.hasMx ?? null
-  const cachedBlanketReject = cachedMxResult?.blanketReject
-
-  // If domain is a known blanket rejector, skip SMTP and return medium confidence
-  if (mode === 'single' && cachedBlanketReject === true) {
-    let deepResult: Awaited<ReturnType<typeof validate>>
-    try {
-      deepResult = await validate({
-        email: workingEmail,
-        sender: workingEmail,
-        validateRegex: true,
-        validateMx: cachedMx === null,
-        validateTypo: true,
-        validateDisposable: true,
-        validateSMTP: false,
-      })
-    } catch {
-      return {
-        valid: true,
-        normalised: workingEmail,
-        confidence: 'medium',
-        roleBased: isRoleBased || undefined,
-        corrected: corrected || undefined,
-        original,
-        suggested,
-      }
-    }
-
-    const validators = deepResult.validators
-    const regexOk = validators.regex?.valid ?? true
-    const disposableOk = validators.disposable?.valid ?? true
-    const mxOk = cachedMx !== null ? cachedMx : (validators.mx?.valid ?? false)
-
-    if (!regexOk || (!disposableOk && !isAllowlistedTLD(domain, musicTLDs)) || !mxOk) {
-      const reason = !regexOk ? 'invalid_format' : !mxOk ? 'no_mx_record' : 'disposable_domain'
-      return {
-        valid: false,
-        normalised: workingEmail,
-        reason: reason as EmailResult['reason'],
-        confidence: 'low',
-        roleBased: isRoleBased || undefined,
-        corrected: corrected || undefined,
-        original,
-        suggested,
-      }
-    }
-
-    return {
-      valid: true,
-      normalised: workingEmail,
-      confidence: 'medium',
-      roleBased: isRoleBased || undefined,
-      corrected: corrected || undefined,
-      original,
-      suggested,
-      checks: {
-        regex: true,
-        typo: validators.typo?.valid ?? true,
-        disposable: disposableOk,
-        mx: mxOk,
-      },
-    }
-  }
-
-  let deepResult: Awaited<ReturnType<typeof validate>>
-  try {
-    const validationPromise = validate({
-      email: workingEmail,
-      sender: workingEmail,
-      validateRegex: true,
-      validateMx: cachedMx === null,
-      validateTypo: true,
-      validateDisposable: true,
-      validateSMTP: mode === 'single',
-    })
-
-    deepResult = await Promise.race([
-      validationPromise,
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('smtp_timeout')), smtpTimeout),
-      ),
-    ])
-  } catch (err) {
-    if (err instanceof Error && err.message === 'smtp_timeout') {
-      return {
-        valid: true,
-        normalised: workingEmail,
-        confidence: 'medium',
-        roleBased: isRoleBased || undefined,
-        corrected: corrected || undefined,
-        original,
-        suggested,
-        checks: { regex: true, typo: true, disposable: true, mx: cachedMx ?? true },
-      }
-    }
-    return {
-      valid: false,
-      normalised: workingEmail,
-      reason: 'no_mx_record',
-      confidence: 'low',
-      roleBased: isRoleBased || undefined,
-      corrected: corrected || undefined,
-      original,
-      suggested,
-    }
-  }
-
-  const validators = deepResult.validators
-  const regexOk = validators.regex?.valid ?? true
-  const typoOk = validators.typo?.valid ?? true
-  const disposableOk = validators.disposable?.valid ?? true
-  const mxOk = cachedMx !== null ? cachedMx : (validators.mx?.valid ?? false)
-  const smtpOk = mode === 'single' ? (validators.smtp?.valid ?? undefined) : undefined
-
-  if (cachedMxResult === null) {
-    mxCache.set(domain, mxOk)
-  }
-
-  if (!regexOk) {
-    return {
-      valid: false,
-      normalised: workingEmail,
-      reason: 'invalid_format',
-      confidence: 'none',
-      roleBased: isRoleBased || undefined,
-      corrected: corrected || undefined,
-      original,
-      suggested,
-      checks: { regex: false, typo: typoOk, disposable: disposableOk, mx: mxOk },
-    }
-  }
-
-  if (!disposableOk && !isAllowlistedTLD(domain, musicTLDs)) {
+  // Disposable check (allowlisted music TLDs are never treated as disposable)
+  if (isDisposableDomain(domain) && !isAllowlistedTLD(domain, musicTLDs)) {
     return {
       valid: false,
       normalised: workingEmail,
@@ -311,29 +161,18 @@ export async function validateEmail(
       corrected: corrected || undefined,
       original,
       suggested,
-      checks: { regex: regexOk, typo: typoOk, disposable: false, mx: mxOk },
+      checks: { regex: true, typo: !corrected, disposable: false, mx: false },
     }
   }
 
-  if (mode === 'single' && smtpOk === false) {
-    return {
-      valid: false,
-      normalised: workingEmail,
-      reason: 'smtp_rejected',
-      confidence: 'low',
-      smtpVerified: false,
-      roleBased: isRoleBased || undefined,
-      corrected: corrected || undefined,
-      original,
-      suggested,
-      checks: {
-        regex: regexOk,
-        typo: typoOk,
-        disposable: disposableOk,
-        mx: mxOk,
-        smtp: false,
-      },
-    }
+  // MX check (cached per domain)
+  const cachedMx = mxCache.get(domain)
+  let mxOk: boolean
+  if (cachedMx !== null) {
+    mxOk = cachedMx.hasMx
+  } else {
+    mxOk = await hasMxRecord(domain)
+    mxCache.set(domain, mxOk)
   }
 
   if (!mxOk) {
@@ -346,22 +185,12 @@ export async function validateEmail(
       corrected: corrected || undefined,
       original,
       suggested,
-      checks: { regex: regexOk, typo: typoOk, disposable: disposableOk, mx: false },
+      checks: { regex: true, typo: !corrected, disposable: true, mx: false },
     }
   }
 
   const isCatchAll = catchAllDomains.has(domain)
-
-  let confidence: EmailResult['confidence']
-  if (isRoleBased || isCatchAll) {
-    confidence = 'medium'
-  } else if (mode === 'single' && smtpOk === true) {
-    confidence = 'high'
-  } else if (mode === 'batch') {
-    confidence = 'high'
-  } else {
-    confidence = 'medium'
-  }
+  const confidence: EmailResult['confidence'] = isRoleBased || isCatchAll ? 'medium' : 'high'
 
   return {
     valid: true,
@@ -373,34 +202,26 @@ export async function validateEmail(
     catchAll: isCatchAll || undefined,
     roleBased: isRoleBased || undefined,
     disposable: false,
-    smtpVerified: mode === 'single' ? (smtpOk ?? undefined) : undefined,
-    checks: {
-      regex: regexOk,
-      typo: typoOk,
-      disposable: disposableOk,
-      mx: mxOk,
-      smtp: smtpOk,
-    },
+    checks: { regex: true, typo: !corrected, disposable: true, mx: true },
   }
 }
 
 /**
  * Validate a batch of emails efficiently.
- * Groups emails by domain for MX cache efficiency.
+ * Groups emails by domain so each domain's MX lookup happens once and is
+ * served from cache for every other address at that domain.
  */
 export async function validateEmailBatch(
   emails: string[],
   config: ValidateConfig = {},
 ): Promise<Map<string, EmailResult>> {
-  const { smtp = false, smtpTimeout = 10_000, onProgress } = config
+  const { onProgress } = config
   const concurrency = 10
   const mxCache = new MxCache(config.mxCacheTTL)
   const results = new Map<string, EmailResult>()
   let completed = 0
 
-  const catchAllDomains = new Set(config.catchAllDomains ?? DEFAULT_CATCH_ALL)
-
-  // Group by domain
+  // Group by (typo-corrected) domain
   const byDomain = new Map<string, string[]>()
   for (const email of emails) {
     const normalised = email.toLowerCase().trim()
@@ -421,40 +242,8 @@ export async function validateEmailBatch(
     byDomain.set(domain, bucket)
   }
 
-  // Blanket-reject pre-pass when SMTP is enabled
-  if (smtp) {
-    const domainsToProbe = [...byDomain.keys()].filter((d) => {
-      if (!d) return false
-      if (catchAllDomains.has(d)) return false
-      const cached = mxCache.get(d)
-      if (cached !== null && cached.blanketReject !== undefined) return false
-      return true
-    })
-
-    const probeQueue = [...domainsToProbe]
-    async function probeNext(): Promise<void> {
-      while (probeQueue.length > 0) {
-        const domain = probeQueue.shift()!
-        const isBlanketReject = await probeBlanketReject(domain, smtpTimeout)
-        if (isBlanketReject) {
-          const existing = mxCache.get(domain)
-          mxCache.set(domain, existing?.hasMx ?? true, true)
-        } else {
-          const existing = mxCache.get(domain)
-          if (existing) {
-            mxCache.set(domain, existing.hasMx, false)
-          }
-        }
-      }
-    }
-
-    const probeWorkers = Array.from({ length: Math.min(5, domainsToProbe.length) }, () =>
-      probeNext(),
-    )
-    await Promise.allSettled(probeWorkers)
-  }
-
-  // Process first email per domain, then remainder (for cache priming)
+  // Process the first email per domain before the remainder so the MX cache
+  // is primed once per domain rather than racing duplicate lookups.
   const firstPerDomain: string[] = []
   const remainder: string[] = []
   for (const bucket of byDomain.values()) {

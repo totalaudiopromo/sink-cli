@@ -17,17 +17,9 @@ export async function scrub(
   // Extract emails from records
   const emails = records.map((r) => r.raw.email).filter((e): e is string => Boolean(e))
 
-  // config.scrub.smtpTimeout is in SECONDS (per the docs and example config);
-  // the validator works in milliseconds. Convert once here. Previously the raw
-  // value was passed straight through, so the documented default of 10 became a
-  // 10ms timeout -- every SMTP check timed out and silently fell back to a
-  // "valid / medium confidence" verdict, making --smtp a no-op.
-  const smtpTimeoutMs = (config.scrub.smtpTimeout ?? 10) * 1000
-
-  // Validate batch
+  // Validate batch. SMTP options were removed in 0.3.0 (see net.ts); MX-level
+  // verification always runs.
   const validationMap = await validateEmailBatch(emails, {
-    smtp: config.scrub.smtp ?? false,
-    smtpTimeout: smtpTimeoutMs,
     rolePrefixes: config.scrub.rolePrefixes,
     catchAllDomains: config.scrub.catchAllDomains,
     musicTLDs: config.scrub.musicTLDs,

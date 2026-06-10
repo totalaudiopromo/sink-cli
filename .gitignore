@@ -21,3 +21,5 @@ docs/demos/*
 !docs/demos/*.gif
 scripts/demos/
 demo-data*.csv
+coverage/
+node_modules.pnpm10.bak/

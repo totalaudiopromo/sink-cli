@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config';
+import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   test: {
@@ -9,6 +9,15 @@ export default defineConfig({
       reporter: ['text', 'json'],
       include: ['src/**/*.ts'],
       exclude: ['src/ui/tui/**'],
+      // Ratchet floor pinned at measured levels (June 2026). Raise as coverage
+      // improves; never lower. Overall % is dragged down by the CLI shell and
+      // UI formatting -- core pipeline logic sits near 100%.
+      thresholds: {
+        statements: 44,
+        branches: 80,
+        functions: 78,
+        lines: 44,
+      },
     },
   },
-});
+})

@@ -51,7 +51,7 @@ sink scrub contacts.csv
 | `sink rinse <file>`   | Deduplicate contacts                          |
 | `sink soak <file>`    | Enrich contacts with AI                       |
 | `sink steep <file>`   | Discover channels via outlet site scraping    |
-| `sink spot <email>`   | Spot-check a single email (with SMTP)         |
+| `sink spot <email>`   | Spot-check a single email (format, typo, MX)  |
 | `sink inspect <file>` | Data quality score                            |
 | `sink drain <file>`   | Convert between formats                       |
 | `sink tui <file>`     | Full TUI dashboard                            |
@@ -74,7 +74,6 @@ Validates and cleans email addresses:
 - MX record verification
 - Role-based email flagging (`press@`, `info@`)
 - Catch-all domain detection
-- Optional SMTP verification (`--smtp`)
 
 ### Rinse
 
@@ -124,7 +123,6 @@ Requires `FIRECRAWL_API_KEY` and an LLM provider key. Phase is silently skipped 
 -q, --quiet                Suppress all output except errors
 --json                     JSON stdout (for piping)
 --no-colour                Disable colours
---smtp                     Enable SMTP verification (scrub phase)
 --provider <name>          Enrichment provider (anthropic|openai)
 ```
 
@@ -174,16 +172,13 @@ First/last name columns are automatically joined. Unmapped columns are preserved
 ## Configuration
 
 Create a `sink.config.mjs` (or `sink.config.json`) in your project root. Sink
-auto-discovers `sink.config.mjs`, `.js`, `.ts`, then `.json`. The `smtpTimeout`
-value is in **seconds**.
+auto-discovers `sink.config.mjs`, `.js`, `.ts`, then `.json`.
 
 ```javascript
 // sink.config.mjs
 export default {
   scrub: {
-    smtp: false,
-    mxCacheTTL: 1800,
-    smtpTimeout: 10, // seconds
+    mxCacheTTL: 1800, // seconds
     typoMap: './data/custom-typos.json',
   },
   rinse: {
