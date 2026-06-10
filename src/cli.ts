@@ -4,7 +4,7 @@ import { writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { program } from 'commander'
 import chalk from 'chalk'
-import { loadConfig } from './config.js'
+import { loadConfig, ConfigError } from './config.js'
 import { runPipeline } from './pipeline.js'
 import { generateCSV } from './output/csv.js'
 import { generateJSON, generateJSONL } from './output/json.js'
@@ -25,6 +25,7 @@ import {
   nextSteps,
   LOGO_LINES,
 } from './ui/format.js'
+import { VERSION } from './version.js'
 import type { SinkRecord, SinkConfig, Phase } from './types.js'
 
 // Load .env if present (works on Node 20+, no dependencies)
@@ -46,8 +47,6 @@ try {
 } catch {
   /* .env file not found, using process.env */
 }
-
-const VERSION = '0.1.0'
 
 // Exit codes
 const EXIT = {
@@ -123,6 +122,15 @@ async function runPhases(
 
   if (opts.noColour) chalk.level = 0
 
+  if (opts.smtp && !opts.quiet && !opts.json) {
+    console.warn(
+      chalk.yellow(
+        '\n  Note: SMTP mailbox verification was removed in 0.3.0 (providers block or mislead probes).\n' +
+          '  MX-level domain verification always runs and covers dead/typo domains.\n',
+      ),
+    )
+  }
+
   const { provider: providerName, model: providerModel } = resolveProvider(opts.provider)
 
   const config = await loadConfig({
@@ -197,8 +205,7 @@ async function runPhases(
   }
 
   const format = opts.format ?? 'csv'
-  const outPath =
-    opts.output ?? deriveOutputPath(label, rawPath, '-clean', format)
+  const outPath = opts.output ?? deriveOutputPath(label, rawPath, '-clean', format)
 
   if (!opts.dryRun) {
     writeOutput(processed, outPath, format)
@@ -222,7 +229,7 @@ async function runSpot(email: string): Promise<void> {
 
   const { validateEmail } = await import('./phases/scrub/validate.js')
   const { MxCache } = await import('./utils/mx-cache.js')
-  const result = await validateEmail(email, { smtp: true, mxCache: new MxCache() })
+  const result = await validateEmail(email, { mxCache: new MxCache() })
 
   step(`Valid:       ${result.valid ? chalk.green('yes') : chalk.red('no')}`)
   step(`Normalised:  ${result.normalised}`)
@@ -236,8 +243,8 @@ async function runSpot(email: string): Promise<void> {
   if (result.roleBased) step(`Role-based:  ${chalk.yellow('yes')}`)
   if (result.catchAll) step(`Catch-all:   ${chalk.yellow('yes')}`)
   if (result.disposable) step(`Disposable:  ${chalk.red('yes')}`)
-  if (result.smtpVerified !== undefined) {
-    step(`SMTP:        ${result.smtpVerified ? chalk.green('verified') : chalk.red('rejected')}`)
+  if (result.checks?.mx !== undefined) {
+    step(`MX record:   ${result.checks.mx ? chalk.green('found') : chalk.red('none')}`)
   }
 
   blank()
@@ -309,7 +316,9 @@ async function runTui(
   if (providerName) config.soak.provider = providerName
   if (providerName && providerModel) {
     ;(config.soak as Record<string, unknown>)[providerName] = {
-      ...((config.soak as Record<string, unknown>)[providerName] as Record<string, unknown> | undefined),
+      ...((config.soak as Record<string, unknown>)[providerName] as
+        | Record<string, unknown>
+        | undefined),
       model: providerModel,
     }
   }
@@ -332,8 +341,7 @@ async function runDrain(
 
   const records = parseInputText(text)
   const format = opts.format ?? 'csv'
-  const outPath =
-    opts.output ?? deriveOutputPath(label, rawPath, '-converted', format)
+  const outPath = opts.output ?? deriveOutputPath(label, rawPath, '-converted', format)
 
   let content: string
   switch (format) {
@@ -404,59 +412,58 @@ const globalOpts = (cmd: typeof program) =>
     .option('-q, --quiet', 'suppress all output except errors')
     .option('--json', 'JSON stdout (for piping)')
     .option('--no-colour', 'disable colours')
-    .option('--smtp', 'enable SMTP verification')
+    .option('--smtp', '(deprecated, no-op) SMTP verification removed in 0.3.0')
     .option('--provider <name>', 'enrichment provider (haiku|sonnet|opus|codex|gpt-4o-mini)')
     .option('--demo', 'use built-in sample data (no file needed)')
     .option('--url <url>', 'fetch CSV from a URL')
 
 globalOpts(
-  program
-    .command('wash [file]')
-    .description('Full pipeline: scrub, rinse, soak, steep'),
-).action((file: string | undefined, opts: Record<string, unknown>) => {
-  runPhases(file, ['scrub', 'rinse', 'soak', 'steep'], opts as Parameters<typeof runPhases>[2])
-})
+  program.command('wash [file]').description('Full pipeline: scrub, rinse, soak, steep'),
+).action((file: string | undefined, opts: Record<string, unknown>) =>
+  runPhases(file, ['scrub', 'rinse', 'soak', 'steep'], opts as Parameters<typeof runPhases>[2]),
+)
 
 globalOpts(program.command('scrub [file]').description('Clean & validate emails')).action(
-  (file: string | undefined, opts: Record<string, unknown>) => {
-    runPhases(file, ['scrub'], opts as Parameters<typeof runPhases>[2])
-  },
+  (file: string | undefined, opts: Record<string, unknown>) =>
+    runPhases(file, ['scrub'], opts as Parameters<typeof runPhases>[2]),
 )
 
 globalOpts(program.command('rinse [file]').description('De-duplicate contacts')).action(
-  (file: string | undefined, opts: Record<string, unknown>) => {
-    runPhases(file, ['scrub', 'rinse'], opts as Parameters<typeof runPhases>[2])
-  },
+  (file: string | undefined, opts: Record<string, unknown>) =>
+    runPhases(file, ['scrub', 'rinse'], opts as Parameters<typeof runPhases>[2]),
 )
 
 globalOpts(program.command('soak [file]').description('Enrich contacts with AI')).action(
-  (file: string | undefined, opts: Record<string, unknown>) => {
-    runPhases(file, ['scrub', 'soak'], opts as Parameters<typeof runPhases>[2])
-  },
+  (file: string | undefined, opts: Record<string, unknown>) =>
+    runPhases(file, ['scrub', 'soak'], opts as Parameters<typeof runPhases>[2]),
 )
 
 globalOpts(
   program
     .command('steep [file]')
     .description('Discover channels: scrape outlet sites for socials, portals, presenter handles'),
-).action((file: string | undefined, opts: Record<string, unknown>) => {
-  runPhases(file, ['scrub', 'soak', 'steep'], opts as Parameters<typeof runPhases>[2])
-})
+).action((file: string | undefined, opts: Record<string, unknown>) =>
+  // steep does channel discovery per outlet; it does not consume soak output,
+  // so we skip the per-contact LLM enrichment here. rinse is free (no network)
+  // and prevents duplicate contacts being attributed twice. Use `wash` for the
+  // full scrub -> rinse -> soak -> steep pipeline.
+  runPhases(file, ['scrub', 'rinse', 'steep'], opts as Parameters<typeof runPhases>[2]),
+)
 
 program
   .command('demo')
   .description('Run the full pipeline on sample data (no file needed)')
   .option('--provider <name>', 'enrichment provider (haiku|sonnet|opus|codex|gpt-4o-mini)')
-  .option('--smtp', 'enable SMTP verification')
+  .option('--smtp', '(deprecated, no-op) SMTP verification removed in 0.3.0')
   .option('--verbose', 'detailed output')
   .option('--no-colour', 'disable colours')
-  .action((opts: Record<string, unknown>) => {
+  .action((opts: Record<string, unknown>) =>
     runPhases(undefined, ['scrub', 'rinse', 'soak', 'steep'], {
       ...opts,
       demo: true,
       verbose: (opts.verbose as boolean) ?? true,
-    } as Parameters<typeof runPhases>[2])
-  })
+    } as Parameters<typeof runPhases>[2]),
+  )
 
 program
   .command('drain [file]')
@@ -469,7 +476,7 @@ program
 
 program
   .command('spot <email>')
-  .description('Spot-check a single email address (with SMTP check)')
+  .description('Spot-check a single email address (format, typo, role, MX)')
   .action(runSpot)
 
 program
@@ -482,7 +489,7 @@ program
 program
   .command('tui [file]')
   .description('Launch the full TUI dashboard')
-  .option('--smtp', 'enable SMTP verification')
+  .option('--smtp', '(deprecated, no-op) SMTP verification removed in 0.3.0')
   .option('--provider <name>', 'enrichment provider')
   .option('--config <path>', 'config file path')
   .option('--demo', 'use built-in sample data')
@@ -518,7 +525,9 @@ program.action(async () => {
       if (providerName) config.soak.provider = providerName
       if (providerName && providerModel) {
         ;(config.soak as Record<string, unknown>)[providerName] = {
-          ...((config.soak as Record<string, unknown>)[providerName] as Record<string, unknown> | undefined),
+          ...((config.soak as Record<string, unknown>)[providerName] as
+            | Record<string, unknown>
+            | undefined),
           model: providerModel,
         }
       }
@@ -529,7 +538,7 @@ program.action(async () => {
           phases.push('scrub', 'rinse', 'soak', 'steep')
           break
         case 'steep':
-          phases.push('scrub', 'soak', 'steep')
+          phases.push('scrub', 'rinse', 'steep')
           break
         case 'scrub':
           phases.push('scrub')
@@ -566,6 +575,7 @@ program.action(async () => {
       }
 
       if (phases.length > 0) {
+        const pasteStart = Date.now()
         intro(VERSION)
         step(`Processing ${chalk.bold('pasted data')} through ${phases.join(chalk.dim(' → '))}`)
         blank()
@@ -587,7 +597,7 @@ program.action(async () => {
         writeFileSync(resolve(outPath), content, 'utf-8')
         showOutputPath(outPath)
         blank()
-        outro(Date.now())
+        outro(Date.now() - pasteStart)
       }
       return
     }
@@ -600,7 +610,7 @@ program.action(async () => {
           phases.push('scrub', 'rinse', 'soak', 'steep')
           break
         case 'steep':
-          phases.push('scrub', 'soak', 'steep')
+          phases.push('scrub', 'rinse', 'steep')
           break
         case 'scrub':
           phases.push('scrub')
@@ -632,6 +642,10 @@ program.action(async () => {
 })
 
 program.parseAsync().catch((err: unknown) => {
+  if (err instanceof ConfigError) {
+    console.error(chalk.red(`\n  ${err.message}\n`))
+    process.exit(EXIT.CONFIG_ERROR)
+  }
   if (err instanceof Error) {
     console.error(chalk.red(`\n  ${err.message}\n`))
   } else {

@@ -17,6 +17,9 @@ video/node_modules/
 video/out/
 .DS_Store
 enriched.csv
-docs/demos/
+docs/demos/*
+!docs/demos/*.gif
 scripts/demos/
 demo-data*.csv
+coverage/
+node_modules.pnpm10.bak/

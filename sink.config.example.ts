@@ -13,12 +13,6 @@ const config: Partial<SinkConfig> = {
 
     // MX cache TTL in seconds (default: 1800)
     // mxCacheTTL: 1800,
-
-    // SMTP verification timeout in seconds (default: 10)
-    // smtpTimeout: 10,
-
-    // Enable SMTP verification (default: false)
-    // smtp: false,
   },
 
   rinse: {
@@ -26,7 +20,7 @@ const config: Partial<SinkConfig> = {
     // fuzzyThreshold: 0.92,
 
     // Dedup strategies to run, in order
-    // strategies: ['exact-email', 'fuzzy-name', 'domain-cluster', 'cross-field'],
+    // strategies: ['exact-email', 'fuzzy-name', 'cross-field'],
   },
 
   soak: {

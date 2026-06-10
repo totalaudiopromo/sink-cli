@@ -1,6 +1,6 @@
 {
   "name": "datasink",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Data hygiene for music PR — scrub, rinse, soak, steep your contact lists",
   "license": "MIT",
   "type": "module",
@@ -16,9 +16,11 @@
     }
   },
   "scripts": {
-    "build": "tsc",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "pnpm clean && tsc",
     "dev": "tsc --watch",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/ test/",
@@ -31,7 +33,6 @@
     "@clack/prompts": "^1.1.0",
     "chalk": "^5.4.0",
     "commander": "^13.0.0",
-    "deep-email-validator": "^0.1.0",
     "ink": "^6.8.0",
     "ink-spinner": "^5.0.0",
     "nanoid": "^5.1.0",
@@ -43,11 +44,12 @@
     "@eslint/js": "^10.0.1",
     "@types/node": "^22.0.0",
     "@types/react": "19.2.10",
+    "@vitest/coverage-v8": "^3.2.6",
     "eslint": "^10.0.3",
     "prettier": "^3.8.1",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.56.1",
-    "vitest": "^3.0.0"
+    "vitest": "^3.2.6"
   },
   "engines": {
     "node": ">=20"

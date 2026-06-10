@@ -1,39 +1,36 @@
-import type { SinkRecord, SinkConfig, PhaseProgress } from '../../types.js';
-import { validateEmailBatch } from './validate.js';
-import { loadTypoMap } from './typo-map.js';
+import type { SinkRecord, SinkConfig, PhaseProgress } from '../../types.js'
+import { validateEmailBatch } from './validate.js'
+import { loadTypoMap } from './typo-map.js'
 
-export { parseCSV, parseRows } from './parse.js';
-export { validateEmail, validateEmailBatch } from './validate.js';
-export { loadTypoMap, getTypoMap, correctDomain } from './typo-map.js';
+export { parseCSV, parseRows } from './parse.js'
+export { validateEmail, validateEmailBatch } from './validate.js'
+export { loadTypoMap, getTypoMap, correctDomain } from './typo-map.js'
 
 export async function scrub(
   records: SinkRecord[],
   config: SinkConfig,
-  onProgress?: (progress: PhaseProgress) => void
+  onProgress?: (progress: PhaseProgress) => void,
 ): Promise<SinkRecord[]> {
   // Load typo map if custom path specified
-  loadTypoMap(config.scrub.typoMap);
+  loadTypoMap(config.scrub.typoMap)
 
   // Extract emails from records
-  const emails = records
-    .map(r => r.raw.email)
-    .filter((e): e is string => Boolean(e));
+  const emails = records.map((r) => r.raw.email).filter((e): e is string => Boolean(e))
 
-  // Validate batch
+  // Validate batch. SMTP options were removed in 0.3.0 (see net.ts); MX-level
+  // verification always runs.
   const validationMap = await validateEmailBatch(emails, {
-    smtp: config.scrub.smtp ?? false,
-    smtpTimeout: config.scrub.smtpTimeout,
     rolePrefixes: config.scrub.rolePrefixes,
     catchAllDomains: config.scrub.catchAllDomains,
     musicTLDs: config.scrub.musicTLDs,
     mxCacheTTL: config.scrub.mxCacheTTL,
     onProgress: (_email, _result, index, total) => {
-      onProgress?.({ phase: 'scrub', current: index, total });
+      onProgress?.({ phase: 'scrub', current: index, total })
     },
-  });
+  })
 
   // Map results onto records
-  return records.map(record => {
+  return records.map((record) => {
     if (!record.raw.email) {
       return {
         ...record,
@@ -46,10 +43,10 @@ export async function scrub(
           },
         },
         phases: [...record.phases, 'scrub' as const],
-      };
+      }
     }
 
-    const result = validationMap.get(record.raw.email);
+    const result = validationMap.get(record.raw.email)
     if (!result) {
       return {
         ...record,
@@ -61,13 +58,13 @@ export async function scrub(
           },
         },
         phases: [...record.phases, 'scrub' as const],
-      };
+      }
     }
 
     return {
       ...record,
       scrub: { email: result },
       phases: [...record.phases, 'scrub' as const],
-    };
-  });
+    }
+  })
 }

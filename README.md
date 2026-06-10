@@ -12,7 +12,7 @@
 **Data hygiene for music PR.** Scrub, rinse, and soak your contact lists.
 
 <p align="center">
-  <img src="video/out/sink-quick.gif" alt="sink-cli quick demo" width="720" />
+  <img src="docs/demos/sink-quick.gif" alt="sink-cli quick demo" width="720" />
 </p>
 
 > _Demo uses fictional contacts for illustration._
@@ -20,7 +20,7 @@
 <details>
 <summary>Full workflow demo (scrub, rinse, inspect)</summary>
 <p align="center">
-  <img src="video/out/sink-full.gif" alt="sink-cli full workflow demo" width="720" />
+  <img src="docs/demos/sink-full.gif" alt="sink-cli full workflow demo" width="720" />
 </p>
 </details>
 
@@ -51,7 +51,7 @@ sink scrub contacts.csv
 | `sink rinse <file>`   | Deduplicate contacts                          |
 | `sink soak <file>`    | Enrich contacts with AI                       |
 | `sink steep <file>`   | Discover channels via outlet site scraping    |
-| `sink spot <email>`   | Spot-check a single email (with SMTP)         |
+| `sink spot <email>`   | Spot-check a single email (format, typo, MX)  |
 | `sink inspect <file>` | Data quality score                            |
 | `sink drain <file>`   | Convert between formats                       |
 | `sink tui <file>`     | Full TUI dashboard                            |
@@ -74,7 +74,6 @@ Validates and cleans email addresses:
 - MX record verification
 - Role-based email flagging (`press@`, `info@`)
 - Catch-all domain detection
-- Optional SMTP verification (`--smtp`)
 
 ### Rinse
 
@@ -82,7 +81,7 @@ Deduplicates and resolves identities:
 
 - **Exact email** -- case-insensitive dedup, keeps the richer record
 - **Fuzzy name** -- Jaro-Winkler similarity within same domain (threshold: 0.92)
-- **Cross-field** -- matches by phone or website across different emails
+- **Cross-field** -- matches by phone across different emails
 
 ### Soak
 
@@ -107,7 +106,9 @@ Discovers contact channels by scraping the outlet's public website:
 - Per-contact attribution: when a contact's name appears on the team / presenter page, their personal handles are extracted
 - Pitch hooks: specific, observable hooks pulled from the scraped text ("submissions form requires ISRC", "no submissions email -- portal only")
 
-Outlet scrapes are cached for 30 days. One scrape powers every contact at that outlet.
+One scrape powers every contact at that outlet. The CLI caches scrapes in
+memory for the duration of a run; a persistent 30-day cache is available to
+programmatic consumers that supply their own `CacheAdapter` (see below).
 
 Requires `FIRECRAWL_API_KEY` and an LLM provider key. Phase is silently skipped if creds are missing.
 
@@ -122,7 +123,6 @@ Requires `FIRECRAWL_API_KEY` and an LLM provider key. Phase is silently skipped 
 -q, --quiet                Suppress all output except errors
 --json                     JSON stdout (for piping)
 --no-colour                Disable colours
---smtp                     Enable SMTP verification (scrub phase)
 --provider <name>          Enrichment provider (anthropic|openai)
 ```
 
@@ -171,14 +171,14 @@ First/last name columns are automatically joined. Unmapped columns are preserved
 
 ## Configuration
 
-Create a `sink.config.ts` in your project root:
+Create a `sink.config.mjs` (or `sink.config.json`) in your project root. Sink
+auto-discovers `sink.config.mjs`, `.js`, `.ts`, then `.json`.
 
-```typescript
+```javascript
+// sink.config.mjs
 export default {
   scrub: {
-    smtp: false,
-    mxCacheTTL: 1800,
-    smtpTimeout: 10,
+    mxCacheTTL: 1800, // seconds
     typoMap: './data/custom-typos.json',
   },
   rinse: {
@@ -198,6 +198,11 @@ export default {
   },
 }
 ```
+
+> A TypeScript `sink.config.ts` also works, but only on Node >= 23.6 (which can
+> strip types natively). On Node 20/22 use `.mjs` or `.json`. If a config file
+> is present but cannot be loaded, sink warns and falls back to defaults; an
+> explicit `--config <path>` that is missing or invalid exits with code 3.
 
 ## Programmatic API
 

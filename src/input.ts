@@ -8,6 +8,7 @@ import { resolve, basename, extname } from 'node:path'
 import { nanoid } from 'nanoid'
 import chalk from 'chalk'
 import { parseCSV } from './phases/scrub/parse.js'
+import { VERSION } from './version.js'
 import type { SinkRecord, Phase } from './types.js'
 
 // ---------------------------------------------------------------------------
@@ -109,13 +110,16 @@ export async function resolveInput(opts: {
   }
 
   // 3. URL fetch (supports Google Sheets share links, Dropbox, plain HTTP)
-  if (opts.url || (opts.file && (opts.file.startsWith('http://') || opts.file.startsWith('https://')))) {
+  if (
+    opts.url ||
+    (opts.file && (opts.file.startsWith('http://') || opts.file.startsWith('https://')))
+  ) {
     const rawUrl = opts.url ?? opts.file!
     const fetchTarget = toGoogleSheetsExportUrl(rawUrl)
     try {
       const response = await fetch(fetchTarget, {
         signal: AbortSignal.timeout(30_000),
-        headers: { 'User-Agent': 'sink-cli/0.1.0' },
+        headers: { 'User-Agent': `sink-cli/${VERSION}` },
       })
       if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
@@ -126,7 +130,9 @@ export async function resolveInput(opts: {
         } else if (response.status === 404) {
           console.error(chalk.red('\n  URL not found (HTTP 404). Check the URL and try again.'))
         } else {
-          console.error(chalk.red(`\n  Failed to fetch URL: ${response.status} ${response.statusText}`))
+          console.error(
+            chalk.red(`\n  Failed to fetch URL: ${response.status} ${response.statusText}`),
+          )
         }
         console.error(chalk.dim(`  ${rawUrl}\n`))
         process.exit(1)
@@ -139,8 +145,10 @@ export async function resolveInput(opts: {
       }
       // Detect Dropbox HTML pages (got download page instead of file)
       if (rawUrl.includes('dropbox.com') && text.trimStart().startsWith('<!DOCTYPE')) {
-        console.error(chalk.red("\n  Got an HTML page instead of CSV."))
-        console.error(chalk.dim("  For Dropbox links, add '?dl=1' to the URL to get a direct download.\n"))
+        console.error(chalk.red('\n  Got an HTML page instead of CSV.'))
+        console.error(
+          chalk.dim("  For Dropbox links, add '?dl=1' to the URL to get a direct download.\n"),
+        )
         process.exit(1)
       }
       const urlLabel = rawUrl.includes('google.com')

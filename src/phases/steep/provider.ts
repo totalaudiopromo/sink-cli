@@ -10,12 +10,15 @@ export class SteepConfigError extends Error {
 /**
  * Normalise a free-text outlet name into a stable domain key.
  *
- * "BBC Radio 1"           -> "bbc.co.uk"
- * "https://amazingradio.com/about" -> "amazingradio.com"
- * "Pluggin' Baby"         -> "plugginbaby"   (no domain found, fall back to slug)
+ * "https://amazingradio.com/about" -> "amazingradio.com"  (URL -> host)
+ * "amazingradio.com"               -> "amazingradio.com"  (domain token)
+ * "BBC Radio 1"                    -> "bbc-radio-1"        (no domain, slug fallback)
+ * "Pluggin' Baby"                  -> "pluggin-baby"       (no domain, slug fallback)
  *
  * Heuristic only -- the steep phase prefers SinkRecord.raw.website if present,
- * and falls back to this slug otherwise.
+ * and falls back to this slug otherwise. Slug keys contain no dot, so the
+ * Firecrawl scraper skips them (it can only fetch real domains): an outlet
+ * named in free text with no website column yields no scrape.
  */
 export function outletToDomain(input: string): string {
   if (!input) return ''
@@ -34,7 +37,5 @@ export function outletToDomain(input: string): string {
   }
 
   // Fall back to a slug (will not collide with real domains because no dot)
-  return trimmed
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
+  return trimmed.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
 }

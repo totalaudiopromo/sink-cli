@@ -13,7 +13,7 @@ export const GLYPH = {
   arrow: '\u2192',
   blockFull: '\u2588',
   blockLight: '\u2591',
-} as const;
+} as const
 
 // ── Colour palette (hex) ────────────────────────────────────────────
 export const COLOUR = {
@@ -26,31 +26,31 @@ export const COLOUR = {
   dimmed: '#374151', // gray-700
   white: '#f9fafb', // gray-50
   bg: '#111827', // gray-900
-} as const;
+} as const
 
 // ── Formatting ──────────────────────────────────────────────────────
 export function padRight(str: string, len: number): string {
-  if (str.length >= len) return str.slice(0, len);
-  return str + ' '.repeat(len - str.length);
+  if (str.length >= len) return str.slice(0, len)
+  return str + ' '.repeat(len - str.length)
 }
 
 export function padLeft(str: string, len: number): string {
-  if (str.length >= len) return str.slice(0, len);
-  return ' '.repeat(len - str.length) + str;
+  if (str.length >= len) return str.slice(0, len)
+  return ' '.repeat(len - str.length) + str
 }
 
 export function truncate(str: string, len: number): string {
-  if (str.length <= len) return str;
-  return str.slice(0, len - 1) + '\u2026';
+  if (str.length <= len) return str
+  return str.slice(0, len - 1) + '\u2026'
 }
 
 export function formatElapsed(ms: number): string {
-  if (ms < 1000) return `${ms}ms`;
-  return `${(ms / 1000).toFixed(1)}s`;
+  if (ms < 1000) return `${ms}ms`
+  return `${(ms / 1000).toFixed(1)}s`
 }
 
 export function formatSpeed(count: number, ms: number): string {
-  if (ms === 0) return '\u2014';
-  const perSec = (count / ms) * 1000;
-  return `${perSec.toFixed(1)}/s`;
+  if (ms === 0) return '\u2014'
+  const perSec = (count / ms) * 1000
+  return `${perSec.toFixed(1)}/s`
 }
