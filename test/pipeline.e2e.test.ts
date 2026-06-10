@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { runPipeline } from '../src/pipeline.js'
@@ -6,6 +6,28 @@ import { loadConfig } from '../src/config.js'
 import { parseCSV } from '../src/phases/scrub/parse.js'
 import { nanoid } from 'nanoid'
 import type { SinkRecord } from '../src/types.js'
+
+// Mock deep-email-validator so the scrub phase never performs real DNS/MX
+// lookups in CI. The fixtures all use real-looking domains, so we report MX
+// present for everything except an explicit nxdomain sentinel. Format and typo
+// checks run in our own code (validate.ts), unaffected by this mock.
+vi.mock('deep-email-validator', () => ({
+  validate: vi.fn(async ({ email }: { email: string }) => {
+    const domain = email.split('@')[1]
+    const isDisposable = domain === 'tempmail.com'
+    const hasMx = domain !== 'nxdomain.invalid'
+    return {
+      valid: hasMx && !isDisposable,
+      validators: {
+        regex: { valid: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) },
+        typo: { valid: true },
+        disposable: { valid: !isDisposable },
+        mx: { valid: hasMx },
+        smtp: { valid: true },
+      },
+    }
+  }),
+}))
 
 function csvToRecords(csv: string): SinkRecord[] {
   const { contacts } = parseCSV(csv)
