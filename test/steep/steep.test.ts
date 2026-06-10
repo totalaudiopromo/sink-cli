@@ -25,7 +25,10 @@ function record(raw: Partial<RawRecord>): SinkRecord {
 }
 
 /** Stub extractor returning a fixed extraction payload via complete(). */
-function makeExtractor(payload: unknown): { provider: SoakProvider; complete: ReturnType<typeof vi.fn> } {
+function makeExtractor(payload: unknown): {
+  provider: SoakProvider
+  complete: ReturnType<typeof vi.fn>
+} {
   const complete = vi.fn(async () => JSON.stringify(payload))
   const provider: SoakProvider = {
     name: 'fake-extractor',
@@ -37,9 +40,10 @@ function makeExtractor(payload: unknown): { provider: SoakProvider; complete: Re
 }
 
 /** Stub scraper returning canned text only for real (dotted) domains. */
-function makeScraper(
-  text = '---PAGE: https://example.com---\nteam page content',
-): { scraper: SteepScraper; scrape: ReturnType<typeof vi.fn> } {
+function makeScraper(text = '---PAGE: https://example.com---\nteam page content'): {
+  scraper: SteepScraper
+  scrape: ReturnType<typeof vi.fn>
+} {
   const scrape = vi.fn(async (domain: string) => {
     if (!domain.includes('.')) return { text: '', pagesFetched: [] }
     return { text, pagesFetched: [`https://${domain}`, `https://${domain}/team`] }

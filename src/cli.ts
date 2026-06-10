@@ -4,7 +4,7 @@ import { writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { program } from 'commander'
 import chalk from 'chalk'
-import { loadConfig } from './config.js'
+import { loadConfig, ConfigError } from './config.js'
 import { runPipeline } from './pipeline.js'
 import { generateCSV } from './output/csv.js'
 import { generateJSON, generateJSONL } from './output/json.js'
@@ -410,35 +410,36 @@ const globalOpts = (cmd: typeof program) =>
 
 globalOpts(
   program.command('wash [file]').description('Full pipeline: scrub, rinse, soak, steep'),
-).action((file: string | undefined, opts: Record<string, unknown>) => {
-  runPhases(file, ['scrub', 'rinse', 'soak', 'steep'], opts as Parameters<typeof runPhases>[2])
-})
+).action((file: string | undefined, opts: Record<string, unknown>) =>
+  runPhases(file, ['scrub', 'rinse', 'soak', 'steep'], opts as Parameters<typeof runPhases>[2]),
+)
 
 globalOpts(program.command('scrub [file]').description('Clean & validate emails')).action(
-  (file: string | undefined, opts: Record<string, unknown>) => {
-    runPhases(file, ['scrub'], opts as Parameters<typeof runPhases>[2])
-  },
+  (file: string | undefined, opts: Record<string, unknown>) =>
+    runPhases(file, ['scrub'], opts as Parameters<typeof runPhases>[2]),
 )
 
 globalOpts(program.command('rinse [file]').description('De-duplicate contacts')).action(
-  (file: string | undefined, opts: Record<string, unknown>) => {
-    runPhases(file, ['scrub', 'rinse'], opts as Parameters<typeof runPhases>[2])
-  },
+  (file: string | undefined, opts: Record<string, unknown>) =>
+    runPhases(file, ['scrub', 'rinse'], opts as Parameters<typeof runPhases>[2]),
 )
 
 globalOpts(program.command('soak [file]').description('Enrich contacts with AI')).action(
-  (file: string | undefined, opts: Record<string, unknown>) => {
-    runPhases(file, ['scrub', 'soak'], opts as Parameters<typeof runPhases>[2])
-  },
+  (file: string | undefined, opts: Record<string, unknown>) =>
+    runPhases(file, ['scrub', 'soak'], opts as Parameters<typeof runPhases>[2]),
 )
 
 globalOpts(
   program
     .command('steep [file]')
     .description('Discover channels: scrape outlet sites for socials, portals, presenter handles'),
-).action((file: string | undefined, opts: Record<string, unknown>) => {
-  runPhases(file, ['scrub', 'soak', 'steep'], opts as Parameters<typeof runPhases>[2])
-})
+).action((file: string | undefined, opts: Record<string, unknown>) =>
+  // steep does channel discovery per outlet; it does not consume soak output,
+  // so we skip the per-contact LLM enrichment here. rinse is free (no network)
+  // and prevents duplicate contacts being attributed twice. Use `wash` for the
+  // full scrub -> rinse -> soak -> steep pipeline.
+  runPhases(file, ['scrub', 'rinse', 'steep'], opts as Parameters<typeof runPhases>[2]),
+)
 
 program
   .command('demo')
@@ -447,13 +448,13 @@ program
   .option('--smtp', 'enable SMTP verification')
   .option('--verbose', 'detailed output')
   .option('--no-colour', 'disable colours')
-  .action((opts: Record<string, unknown>) => {
+  .action((opts: Record<string, unknown>) =>
     runPhases(undefined, ['scrub', 'rinse', 'soak', 'steep'], {
       ...opts,
       demo: true,
       verbose: (opts.verbose as boolean) ?? true,
-    } as Parameters<typeof runPhases>[2])
-  })
+    } as Parameters<typeof runPhases>[2]),
+  )
 
 program
   .command('drain [file]')
@@ -528,7 +529,7 @@ program.action(async () => {
           phases.push('scrub', 'rinse', 'soak', 'steep')
           break
         case 'steep':
-          phases.push('scrub', 'soak', 'steep')
+          phases.push('scrub', 'rinse', 'steep')
           break
         case 'scrub':
           phases.push('scrub')
@@ -600,7 +601,7 @@ program.action(async () => {
           phases.push('scrub', 'rinse', 'soak', 'steep')
           break
         case 'steep':
-          phases.push('scrub', 'soak', 'steep')
+          phases.push('scrub', 'rinse', 'steep')
           break
         case 'scrub':
           phases.push('scrub')
@@ -632,6 +633,10 @@ program.action(async () => {
 })
 
 program.parseAsync().catch((err: unknown) => {
+  if (err instanceof ConfigError) {
+    console.error(chalk.red(`\n  ${err.message}\n`))
+    process.exit(EXIT.CONFIG_ERROR)
+  }
   if (err instanceof Error) {
     console.error(chalk.red(`\n  ${err.message}\n`))
   } else {

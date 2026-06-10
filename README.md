@@ -173,14 +173,17 @@ First/last name columns are automatically joined. Unmapped columns are preserved
 
 ## Configuration
 
-Create a `sink.config.ts` in your project root:
+Create a `sink.config.mjs` (or `sink.config.json`) in your project root. Sink
+auto-discovers `sink.config.mjs`, `.js`, `.ts`, then `.json`. The `smtpTimeout`
+value is in **seconds**.
 
-```typescript
+```javascript
+// sink.config.mjs
 export default {
   scrub: {
     smtp: false,
     mxCacheTTL: 1800,
-    smtpTimeout: 10,
+    smtpTimeout: 10, // seconds
     typoMap: './data/custom-typos.json',
   },
   rinse: {
@@ -200,6 +203,11 @@ export default {
   },
 }
 ```
+
+> A TypeScript `sink.config.ts` also works, but only on Node >= 23.6 (which can
+> strip types natively). On Node 20/22 use `.mjs` or `.json`. If a config file
+> is present but cannot be loaded, sink warns and falls back to defaults; an
+> explicit `--config <path>` that is missing or invalid exits with code 3.
 
 ## Programmatic API
 
