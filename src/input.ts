@@ -8,6 +8,7 @@ import { resolve, basename, extname } from 'node:path'
 import { nanoid } from 'nanoid'
 import chalk from 'chalk'
 import { parseCSV } from './phases/scrub/parse.js'
+import { VERSION } from './version.js'
 import type { SinkRecord, Phase } from './types.js'
 
 // ---------------------------------------------------------------------------
@@ -118,7 +119,7 @@ export async function resolveInput(opts: {
     try {
       const response = await fetch(fetchTarget, {
         signal: AbortSignal.timeout(30_000),
-        headers: { 'User-Agent': 'sink-cli/0.1.0' },
+        headers: { 'User-Agent': `sink-cli/${VERSION}` },
       })
       if (!response.ok) {
         if (response.status === 401 || response.status === 403) {

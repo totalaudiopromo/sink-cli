@@ -25,6 +25,7 @@ import {
   nextSteps,
   LOGO_LINES,
 } from './ui/format.js'
+import { VERSION } from './version.js'
 import type { SinkRecord, SinkConfig, Phase } from './types.js'
 
 // Load .env if present (works on Node 20+, no dependencies)
@@ -47,7 +48,6 @@ try {
   /* .env file not found, using process.env */
 }
 
-const VERSION = '0.1.0'
 
 // Exit codes
 const EXIT = {
@@ -566,6 +566,7 @@ program.action(async () => {
       }
 
       if (phases.length > 0) {
+        const pasteStart = Date.now()
         intro(VERSION)
         step(`Processing ${chalk.bold('pasted data')} through ${phases.join(chalk.dim(' → '))}`)
         blank()
@@ -587,7 +588,7 @@ program.action(async () => {
         writeFileSync(resolve(outPath), content, 'utf-8')
         showOutputPath(outPath)
         blank()
-        outro(Date.now())
+        outro(Date.now() - pasteStart)
       }
       return
     }
