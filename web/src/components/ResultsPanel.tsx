@@ -39,6 +39,46 @@ function topGenres(records: SinkRecord[], limit = 12): string[] {
     .map(([g]) => g)
 }
 
+/** Per-outlet steep signals beyond submission portals, so a 0-portal run still reads as useful. */
+function steepSignals(records: SinkRecord[]): { socials: number; hooks: number } {
+  const seen = new Set<string>()
+  let socials = 0
+  let hooks = 0
+  for (const r of records) {
+    const s = r.steep
+    if (!s || seen.has(s.outletDomain)) continue
+    seen.add(s.outletDomain)
+    if (s.outletInstagram || s.outletTwitter || s.outletLinkedIn || s.outletFacebook) socials += 1
+    if (s.pitchHooks?.length) hooks += 1
+  }
+  return { socials, hooks }
+}
+
+/** How many per-contact intel rows to render before collapsing to a count (rest is in the download). */
+const INTEL_CAP = 30
+
+function CopyButton({ value, label }: { value: string; label: string }) {
+  const [copied, setCopied] = useState(false)
+  return (
+    <button
+      type="button"
+      className="copy-btn"
+      aria-label={`Copy ${label}`}
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(value)
+          setCopied(true)
+          setTimeout(() => setCopied(false), 1200)
+        } catch {
+          // clipboard unavailable (e.g. insecure context) — no-op
+        }
+      }}
+    >
+      {copied ? '✓ copied' : 'copy'}
+    </button>
+  )
+}
+
 export function ResultsPanel({
   stats,
   records,
@@ -69,6 +109,21 @@ export function ResultsPanel({
     () => records.filter((r) => !r.rinse?.duplicate && (r.soak || r.steep)),
     [records],
   )
+
+  const steepDetail = useMemo(() => {
+    if (!didSteep) return ''
+    const { socials, hooks } = steepSignals(records)
+    const portals = stats.outletsWithPortal ?? 0
+    const confirmed = stats.contactsConfirmed ?? 0
+    const parts: string[] = []
+    if (portals > 0) parts.push(`${portals} with a submission portal`)
+    if (socials > 0) parts.push(`${socials} with socials`)
+    if (hooks > 0) parts.push(`${hooks} with pitch hooks`)
+    if (confirmed > 0) parts.push(`${confirmed} contact${confirmed === 1 ? '' : 's'} confirmed on-page`)
+    return parts.length
+      ? parts.join(' · ')
+      : 'Scanned each outlet for submission portals, socials and recent coverage — nothing public surfaced on these sites.'
+  }, [didSteep, records, stats.outletsWithPortal, stats.contactsConfirmed])
 
   return (
     <section className="results" aria-label="Cleaning results">
@@ -135,10 +190,7 @@ export function ResultsPanel({
               · {stats.outletsScraped} outlet{stats.outletsScraped === 1 ? '' : 's'}
             </span>
           </h3>
-          <p className="dim results-detail">
-            {stats.outletsWithPortal ?? 0} with a submission portal · {stats.contactsConfirmed ?? 0}{' '}
-            contact{stats.contactsConfirmed === 1 ? '' : 's'} confirmed on-page
-          </p>
+          <p className="dim results-detail">{steepDetail}</p>
         </div>
       )}
 
@@ -146,7 +198,7 @@ export function ResultsPanel({
         <div className="results-section">
           <h3 className="results-h">Per-contact intel</h3>
           <div className="intel-list">
-            {intel.map((r) => (
+            {intel.slice(0, INTEL_CAP).map((r) => (
               <details key={r.id} className="intel-item">
                 <summary>
                   <span className="intel-id">
@@ -182,15 +234,17 @@ export function ResultsPanel({
                     </div>
                   ) : null}
                   {r.steep?.submissionPortalUrl ? (
-                    <div>
+                    <div className="intel-copy-row">
                       <span className="dim">Portal: </span>
                       {r.steep.submissionPortalUrl}
+                      <CopyButton value={r.steep.submissionPortalUrl} label="submission portal" />
                     </div>
                   ) : null}
                   {r.steep?.submissionEmail ? (
-                    <div>
+                    <div className="intel-copy-row">
                       <span className="dim">Submissions email: </span>
                       {r.steep.submissionEmail}
+                      <CopyButton value={r.steep.submissionEmail} label="submissions email" />
                     </div>
                   ) : null}
                   {r.steep?.outletInstagram ? (
@@ -208,6 +262,11 @@ export function ResultsPanel({
                 </div>
               </details>
             ))}
+            {intel.length > INTEL_CAP && (
+              <p className="dim intel-more">
+                …and {intel.length - INTEL_CAP} more — full enrichment is in the download.
+              </p>
+            )}
           </div>
         </div>
       )}

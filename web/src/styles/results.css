@@ -303,3 +303,35 @@
   line-height: 1.6;
   margin-top: 16px;
 }
+
+/* ── Polish: copy buttons + capped intel list ──────────────────────────── */
+.intel-copy-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.copy-btn {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 7px;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.copy-btn:hover,
+.copy-btn:focus-visible {
+  color: var(--cyan);
+  border-color: var(--cyan);
+  outline: none;
+}
+
+.intel-more {
+  font-size: 12px;
+  padding: 4px 2px;
+}
