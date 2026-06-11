@@ -1,0 +1,110 @@
+.results {
+  margin-top: 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.22);
+  padding: 26px 28px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 24px 40px;
+  animation: rise 0.35s ease both;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.results-score {
+  display: flex;
+  flex-direction: column;
+}
+
+.score-number {
+  font-size: 42px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.score-label {
+  font-size: 11px;
+  margin-top: 6px;
+}
+
+.results-counts {
+  display: flex;
+  gap: 28px;
+}
+
+.count-item dt {
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+
+.count-item dd {
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.results-detail {
+  font-size: 12px;
+  width: 100%;
+}
+
+.results-actions {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.download-button {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--bg);
+  background: var(--cyan);
+  border-radius: 6px;
+  padding: 11px 20px;
+  text-decoration: none;
+  transition: filter 0.15s ease;
+}
+
+.download-button:hover,
+.download-button:focus-visible {
+  filter: brightness(1.12);
+  outline: none;
+}
+
+.reset-button {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 11px 20px;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.reset-button:hover,
+.reset-button:focus-visible {
+  color: var(--text);
+  border-color: var(--muted);
+  outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .results {
+    animation: none;
+  }
+}

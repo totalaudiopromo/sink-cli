@@ -25,8 +25,9 @@ export { exactDedup } from './phases/rinse/exact-dedup.js'
 export { fuzzyMatch, jaroWinkler } from './phases/rinse/fuzzy-match.js'
 export { crossFieldMatch } from './phases/rinse/identity.js'
 
-// Pipeline (lazy-loads phases; safe at import time)
-export { runPipeline } from './pipeline.js'
+// Note: runPipeline stays on the root entry only — its lazy phase loading
+// pulls soak/steep (and their Node-flavoured deps) into browser bundles.
+// Browser consumers compose scrub() and rinse() directly.
 
 // Output
 export { generateCSV } from './output/csv.js'

@@ -1,3 +1,7 @@
+packages:
+  - '.'
+  - 'web'
+
 allowBuilds:
   # esbuild's postinstall fetches its platform binary; vitest needs it.
   esbuild: true
@@ -6,3 +10,7 @@ overrides:
   # ws < 8.20.1 has an uninitialized-memory-disclosure advisory (GHSA-58qx);
   # pulled in transitively by ink and openai. Remove once both ship a fixed range.
   ws: '>=8.20.1'
+  # react-dom requires the exact same react version; datasink (ink TUI) and
+  # web must share one copy or the web app throws at mount.
+  react: 19.2.7
+  react-dom: 19.2.7

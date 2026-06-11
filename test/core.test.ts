@@ -23,7 +23,6 @@ describe('datasink/core entry', () => {
       'fuzzyMatch',
       'jaroWinkler',
       'crossFieldMatch',
-      'runPipeline',
       'generateCSV',
       'generateJSON',
       'generateJSONL',
