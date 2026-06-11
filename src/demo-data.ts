@@ -1,0 +1,21 @@
+/**
+ * Built-in demo dataset (fictional contacts). Pure data, no imports —
+ * safe for both the CLI (--demo) and browser builds.
+ *
+ * Deliberately messy: two domain typos (gmial.com, hotmial.com), one
+ * invalid address (beth@), and one duplicate contact (Dan Foster).
+ */
+
+export const DEMO_CSV = `name,email,outlet,role
+James Hartley,james.hartley@bbc.co.uk,BBC Radio 1,Producer
+Sophie Chen,sophie@radiox.co.uk,Radio X,Presenter
+Dan Foster,dan.foster@gmial.com,Kerrang Radio,Producer
+Rachel Torres,rachel@absoluteradio.co.uk,Absolute Radio,DJ
+Priya Kapoor,priya@diymagazine.com,DIY Magazine,Reviews Editor
+Alex Murray,alex@clash-magazine.com,Clash Magazine,Music Editor
+Liam O'Brien,liam@hotmial.com,Radio Wigwam,Presenter
+Tom Barrett,tom.barrett@radiox.co.uk,Radio X,Evening Show
+Ryan Davis,ryan@gigslutz.co.uk,GigSlutz,Editor
+Dan Foster,dan.foster@gmail.com,Kerrang Radio,Producer
+Beth Carpenter,beth@,Loud and Quiet,Reviews
+Nina Patel,nina@thelineofbestfit.com,The Line of Best Fit,Staff Writer`
