@@ -12,6 +12,13 @@ function pad(value: string, width: number): string {
   return value.length > width ? value.slice(0, width - 1) + '…' : value.padEnd(width)
 }
 
+function confidenceCls(confidence: string): string {
+  if (confidence === 'high') return 'green'
+  if (confidence === 'medium') return 'yellow'
+  if (confidence === 'none') return 'red'
+  return 'dim'
+}
+
 export function TerminalLineView({ line }: { line: Line }) {
   const d = line.data
   switch (line.kind) {
@@ -131,6 +138,88 @@ export function TerminalLineView({ line }: { line: Line }) {
 
     case 'outro':
       return <div className="t-line dim">{`  Done in ${String(d.seconds)}s`}</div>
+
+    case 'phase-header':
+      return (
+        <div className="t-line">
+          {'  '}
+          <span className="cyan">{`── ${String(d.name)} `}</span>
+          <span className="dim">{String(d.label)}</span>
+        </div>
+      )
+
+    case 'phase-gate':
+      return (
+        <div className="t-line">
+          {'  '}
+          <span className="yellow">~</span> <span className="yellow">{String(d.text)}</span>
+        </div>
+      )
+
+    case 'soak-row': {
+      const icon = ICONS[String(d.tone)] ?? ICONS.ok
+      return (
+        <div className="t-line">
+          {'  '}
+          <span className={icon.cls}>{icon.glyph}</span> {pad(String(d.name), 22)}
+          <span className="dim">{pad(String(d.detail ?? ''), 34)}</span>
+          <span className={confidenceCls(String(d.confidence))}>{String(d.confidence)}</span>
+        </div>
+      )
+    }
+
+    case 'soak-summary': {
+      const failed = Number(d.failed)
+      return (
+        <div className="t-line">
+          {'  '}
+          <span className={failed > 0 ? 'yellow' : 'green'}>{failed > 0 ? '~' : '✓'}</span>{' '}
+          Enriched {String(d.enriched)} contact{Number(d.enriched) === 1 ? '' : 's'}
+          {failed > 0 && <span className="dim">{` (${failed} failed)`}</span>}
+        </div>
+      )
+    }
+
+    case 'steep-row': {
+      const icon = ICONS[String(d.tone)] ?? ICONS.ok
+      return (
+        <div className="t-line">
+          {'  '}
+          <span className={icon.cls}>{icon.glyph}</span> {pad(String(d.domain), 26)}
+          <span className="dim">{pad(String(d.detail ?? ''), 30)}</span>
+          <span className={confidenceCls(String(d.confidence))}>{String(d.confidence)}</span>
+        </div>
+      )
+    }
+
+    case 'steep-summary':
+      return (
+        <div className="t-line">
+          {'  '}
+          <span className="green">✓</span> Researched {String(d.outlets)} outlet
+          {Number(d.outlets) === 1 ? '' : 's'}
+          <span className="dim">
+            {`  ·  ${String(d.portals)} submission portal${Number(d.portals) === 1 ? '' : 's'}`}
+            {`  ·  ${String(d.confirmed)} contact${Number(d.confirmed) === 1 ? '' : 's'} confirmed`}
+          </span>
+        </div>
+      )
+
+    case 'key-error':
+      return (
+        <div className="t-line">
+          {'  '}
+          <span className="red">✗</span> <span className="red">{String(d.text)}</span>
+        </div>
+      )
+
+    case 'key-prompt':
+      return (
+        <div className="t-line">
+          {'  '}
+          <span className="cyan">?</span> <span className="dim">{String(d.text)}</span>
+        </div>
+      )
 
     default:
       return null

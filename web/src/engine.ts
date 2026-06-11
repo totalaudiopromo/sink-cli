@@ -1,21 +1,28 @@
 /**
- * Runs the real datasink engine (scrub + rinse) client-side and narrates the
- * run as TerminalLine events that mirror the CLI's output, line for line.
+ * Runs the real datasink engine client-side and narrates each run as
+ * TerminalLine events that mirror the CLI's output, line for line.
+ *
+ * The deterministic phases (scrub + rinse) run locally with no key. The AI
+ * phases (soak + steep) live in soak-browser.ts / steep-browser.ts and are
+ * invoked separately by the hook once the user supplies a key — so the run
+ * pauses between rinse and soak rather than running straight through.
  */
 
-import { parseCSV, scrub, rinse, generateCSV } from 'datasink/core'
+import { parseCSV, scrub, rinse, validateEmail, MxCache } from 'datasink/core'
 import type { SinkConfig, SinkRecord } from 'datasink/core'
-import type { TerminalLine, TerminalLineKind, WebStats } from './types'
+import type { TerminalLine, TerminalLineKind, WebStats, RunMode } from './types'
 
 export type OnLine = (line: TerminalLine) => void
 
-export interface EngineResult {
+export interface CleanResult {
+  records: SinkRecord[]
   stats: WebStats
-  cleanCsv: string
   parseError?: string
+  /** True when scrub+rinse ran and the run can now offer AI enrichment. */
+  needsKeys: boolean
 }
 
-const WEB_CONFIG: SinkConfig = {
+export const WEB_CONFIG: SinkConfig = {
   scrub: {},
   rinse: {
     fuzzyThreshold: 0.92,
@@ -27,7 +34,7 @@ const WEB_CONFIG: SinkConfig = {
 }
 
 let lineCounter = 0
-function line(
+export function line(
   kind: TerminalLineKind,
   data: TerminalLine['data'] = {},
   replace = false,
@@ -55,25 +62,37 @@ function reasonFor(record: SinkRecord): { tone: 'ok' | 'warn' | 'fail'; text: st
   return { tone: 'ok', text: 'ok' }
 }
 
-export async function runEngine(csvText: string, onLine: OnLine): Promise<EngineResult> {
-  const start = Date.now()
+function emptyStats(): WebStats {
+  return {
+    total: 0,
+    valid: 0,
+    risky: 0,
+    invalid: 0,
+    typos: 0,
+    duplicates: 0,
+    quality: 0,
+    durationMs: 0,
+    cleanCount: 0,
+  }
+}
 
+/**
+ * Runs scrub, then rinse (full mode only), narrating each step. Does NOT narrate
+ * the closing summary — the caller calls narrateSummary() after the AI phases
+ * (or immediately, when the user skips them). Inspect mode runs scrub only.
+ */
+export async function runClean(
+  csvText: string,
+  onLine: OnLine,
+  mode: RunMode = 'full',
+): Promise<CleanResult> {
   const { contacts, errors } = parseCSV(csvText)
   if (contacts.length === 0) {
     return {
-      stats: {
-        total: 0,
-        valid: 0,
-        risky: 0,
-        invalid: 0,
-        typos: 0,
-        duplicates: 0,
-        quality: 0,
-        durationMs: 0,
-        cleanCount: 0,
-      },
-      cleanCsv: '',
+      records: [],
+      stats: emptyStats(),
       parseError: errors[0] ?? 'No usable rows found in that file.',
+      needsKeys: false,
     }
   }
 
@@ -84,7 +103,8 @@ export async function runEngine(csvText: string, onLine: OnLine): Promise<Engine
     timestamp: new Date().toISOString(),
   }))
 
-  onLine(line('step', { text: `Processing ${contacts.length} contacts through scrub → rinse` }))
+  const flow = mode === 'inspect' ? 'scrub' : 'scrub → rinse'
+  onLine(line('step', { text: `Processing ${contacts.length} contacts through ${flow}` }))
   onLine(line('blank'))
 
   // ── Scrub ────────────────────────────────────────────────────────────────
@@ -130,31 +150,69 @@ export async function runEngine(csvText: string, onLine: OnLine): Promise<Engine
   }
   onLine(line('blank'))
 
-  // ── Rinse ────────────────────────────────────────────────────────────────
-  onLine(line('progress', { text: 'Rinsing…' }))
-  records = await rinse(records, WEB_CONFIG)
-  const duplicates = records.filter((r) => r.rinse?.duplicate).length
-  onLine(line('step-complete', { text: 'Rinse complete' }, true))
-  onLine(
-    line('validation-row', {
-      icon: duplicates > 0 ? 'warn' : 'ok',
-      label: 'Duplicates',
-      count: duplicates,
-      unit: 'merged',
-    }),
-  )
-  onLine(line('blank'))
+  // ── Rinse (full mode only) ────────────────────────────────────────────────
+  let duplicates = 0
+  if (mode !== 'inspect') {
+    onLine(line('progress', { text: 'Rinsing…' }))
+    records = await rinse(records, WEB_CONFIG)
+    duplicates = records.filter((r) => r.rinse?.duplicate).length
+    onLine(line('step-complete', { text: 'Rinse complete' }, true))
+    onLine(
+      line('validation-row', {
+        icon: duplicates > 0 ? 'warn' : 'ok',
+        label: 'Duplicates',
+        count: duplicates,
+        unit: 'merged',
+      }),
+    )
+    onLine(line('blank'))
+  }
+
+  const total = records.length
+  const quality = total > 0 ? Math.round(((valid + risky * 0.5) / total) * 100) : 0
+  const cleanCount = records.filter((r) => !r.rinse?.duplicate).length
+
+  const stats: WebStats = {
+    total,
+    valid,
+    risky,
+    invalid,
+    typos,
+    duplicates,
+    quality,
+    durationMs: 0,
+    cleanCount,
+  }
+
+  return { records, stats, needsKeys: mode === 'full' }
+}
+
+/**
+ * Narrates the closing summary: quality score, transform line, contact table,
+ * output path, outro. Shared by the skip path and the post-AI path. In
+ * reportOnly mode (inspect) no output path is shown.
+ */
+export function narrateSummary(
+  records: SinkRecord[],
+  stats: WebStats,
+  onLine: OnLine,
+  opts: { durationMs: number; reportOnly?: boolean },
+): void {
   onLine(line('divider'))
   onLine(line('blank'))
 
-  // ── Summary ──────────────────────────────────────────────────────────────
-  const total = records.length
-  const quality = total > 0 ? Math.round(((valid + risky * 0.5) / total) * 100) : 0
-  onLine(line('quality', { quality }))
+  onLine(line('quality', { quality: stats.quality }))
   onLine(line('blank'))
-  onLine(line('transform-summary', { total, valid, risky, invalid }))
-  if (typos > 0 || duplicates > 0) {
-    onLine(line('transform-detail', { typos, duplicates }))
+  onLine(
+    line('transform-summary', {
+      total: stats.total,
+      valid: stats.valid,
+      risky: stats.risky,
+      invalid: stats.invalid,
+    }),
+  )
+  if (stats.typos > 0 || stats.duplicates > 0) {
+    onLine(line('transform-detail', { typos: stats.typos, duplicates: stats.duplicates }))
   }
   onLine(line('blank'))
 
@@ -190,17 +248,72 @@ export async function runEngine(csvText: string, onLine: OnLine): Promise<Engine
   }
   onLine(line('blank'))
 
-  // ── Output ───────────────────────────────────────────────────────────────
-  const cleanCsv = generateCSV(records)
-  const cleanCount = records.filter((r) => !r.rinse?.duplicate).length
-  onLine(line('output-path', { path: 'contacts-clean.csv' }))
+  if (opts.reportOnly) {
+    onLine(line('plain', { text: 'Report only — no file written.', dim: true }))
+  } else {
+    onLine(line('output-path', { path: 'contacts-clean.csv' }))
+  }
+  onLine(line('blank'))
+  onLine(line('outro', { seconds: (opts.durationMs / 1000).toFixed(1) }))
+}
+
+/**
+ * Spot-checks a single email address — mirrors the CLI's `sink spot`.
+ * Validates format, typo correction, role/catch-all flags, and MX record.
+ */
+export async function runSpot(email: string, onLine: OnLine): Promise<void> {
+  const trimmed = email.trim()
+  onLine(line('step', { text: `Spot-checking ${trimmed}` }))
+  onLine(line('blank'))
+  onLine(line('progress', { text: 'Checking format and mail server…' }))
+
+  const result = await validateEmail(trimmed, { mxCache: new MxCache() })
+  const e = result
+
+  onLine(line('step-complete', { text: 'Check complete' }, true))
   onLine(line('blank'))
 
-  const durationMs = Date.now() - start
-  onLine(line('outro', { seconds: (durationMs / 1000).toFixed(1) }))
+  const row = (label: string, ok: boolean | 'warn', value: string) =>
+    line('validation-row', {
+      icon: ok === 'warn' ? 'warn' : ok ? 'ok' : 'fail',
+      label,
+      count: '' as unknown as number,
+      unit: value,
+    })
 
-  return {
-    stats: { total, valid, risky, invalid, typos, duplicates, quality, durationMs, cleanCount },
-    cleanCsv,
+  // Format
+  onLine(row('Format', e.checks?.regex ?? e.valid, e.checks?.regex ?? e.valid ? 'valid' : 'invalid'))
+  // Typo correction
+  if (e.corrected) {
+    onLine(
+      line('plain', {
+        text: `Typo corrected: ${e.original} → ${e.suggested ?? e.normalised}`,
+        dim: false,
+      }),
+    )
   }
+  // Disposable
+  onLine(row('Disposable', e.disposable ? false : true, e.disposable ? 'yes' : 'no'))
+  // Role-based
+  onLine(row('Role-based', e.roleBased ? 'warn' : true, e.roleBased ? 'yes' : 'no'))
+  // Catch-all
+  onLine(row('Catch-all', e.catchAll ? 'warn' : true, e.catchAll ? 'yes' : 'no'))
+  // MX
+  onLine(row('Mail server', e.checks?.mx ?? false, e.checks?.mx ? 'present' : 'none'))
+  onLine(line('blank'))
+
+  const verdict = e.valid
+    ? e.confidence === 'high'
+      ? { tone: 'ok', text: 'Looks good — high confidence' }
+      : { tone: 'warn', text: 'Deliverable but unverified' }
+    : { tone: 'fail', text: 'Not deliverable' }
+  onLine(
+    line('contact-row', {
+      tone: verdict.tone,
+      name: e.normalised || trimmed,
+      email: '',
+      reason: verdict.text,
+    }),
+  )
+  onLine(line('blank'))
 }

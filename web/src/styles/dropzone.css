@@ -70,3 +70,88 @@
   font-size: 11px;
   line-height: 1.6;
 }
+
+/* ── Extra inputs: URL load, spot-check, inspect toggle ─────────────────── */
+.dropzone-extras {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  cursor: default;
+}
+
+.dropzone-links {
+  font-size: 12px;
+}
+
+.text-link {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--cyan);
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.text-link:hover,
+.text-link:focus-visible {
+  text-decoration: underline;
+  outline: none;
+}
+
+.mini-form {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 420px;
+}
+
+.mini-form input {
+  flex: 1 1 240px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.mini-form input:focus-visible {
+  border-color: var(--cyan);
+  outline: none;
+}
+
+.mini-button {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--bg);
+  background: var(--cyan);
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+
+.mini-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.mini-error {
+  flex-basis: 100%;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.dropzone-inspect {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}

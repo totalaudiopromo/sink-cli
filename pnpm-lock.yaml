@@ -74,6 +74,9 @@ importers:
 
   web:
     dependencies:
+      '@anthropic-ai/sdk':
+        specifier: ^0.39.0
+        version: 0.39.0
       datasink:
         specifier: workspace:*
         version: link:..

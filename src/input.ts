@@ -9,12 +9,17 @@ import { nanoid } from 'nanoid'
 import chalk from 'chalk'
 import { parseCSV } from './phases/scrub/parse.js'
 import { VERSION } from './version.js'
+import { toGoogleSheetsExportUrl } from './input-browser.js'
 import type { SinkRecord, Phase } from './types.js'
 
 // Embedded demo data lives in demo-data.ts (pure module, browser-safe);
 // re-exported here so existing CLI imports keep working.
 export { DEMO_CSV } from './demo-data.js'
 import { DEMO_CSV } from './demo-data.js'
+
+// Pure URL helper lives in input-browser.ts (browser-safe); re-exported here
+// so existing CLI imports of toGoogleSheetsExportUrl keep working.
+export { toGoogleSheetsExportUrl } from './input-browser.js'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -26,21 +31,6 @@ async function readStdin(): Promise<string> {
     chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk)
   }
   return Buffer.concat(chunks).toString('utf-8')
-}
-
-/** Convert a Google Sheets share/edit URL to a CSV export URL */
-export function toGoogleSheetsExportUrl(url: string): string {
-  if (!url.includes('docs.google.com/spreadsheets/d/')) return url
-  if (url.includes('/export?') || url.includes('/gviz/tq')) return url
-
-  const idMatch = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/)
-  if (!idMatch) return url
-
-  const id = idMatch[1]
-  const gidMatch = url.match(/[#&?]gid=(\d+)/)
-  const gid = gidMatch ? `&gid=${gidMatch[1]}` : ''
-
-  return `https://docs.google.com/spreadsheets/d/${id}/export?format=csv${gid}`
 }
 
 function readFile(filePath: string): string {
