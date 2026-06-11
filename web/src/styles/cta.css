@@ -33,6 +33,10 @@
   overflow-x: auto;
 }
 
+.npm-note {
+  font-size: 11px;
+}
+
 .text-link,
 .tap-link {
   font-size: 12.5px;

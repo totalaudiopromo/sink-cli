@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.3.0] - 2026-06-10
+## [0.4.0] - 2026-06-11
 
 ### Added
 
@@ -18,6 +18,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   source in `web/`): a single-page app that runs the real engine client-side
   and renders the run as a live terminal session in the CLI's exact visual
   language. pnpm workspace package; fully static; no backend.
+
+### Changed
+
+- Naming made explicit everywhere: the product and binary are **sink**;
+  `datasink` is the npm package name (the `sink` name is taken on npm, and
+  `sink-cli` is blocked by npm's spelling-similarity rule). README, npm
+  description/keywords, and the web page now all state this.
+
+## [0.3.0] - 2026-06-10
 
 ### Security
 

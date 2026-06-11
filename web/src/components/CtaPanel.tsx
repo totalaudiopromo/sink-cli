@@ -9,6 +9,10 @@ export function CtaPanel() {
             <span className="dim">$ </span>npx datasink scrub contacts.csv
           </code>
         </pre>
+        <p className="dim npm-note">
+          sink is published on npm as <span className="cyan">datasink</span> — the short name was
+          taken.
+        </p>
         <a
           className="text-link"
           href="https://github.com/totalaudiopromo/sink-cli"
