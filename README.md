@@ -11,6 +11,10 @@
 
 **Data hygiene for music PR.** Scrub, rinse, and soak your contact lists.
 
+> The product is **sink**; the binary is `sink`. It's published on npm as
+> [`datasink`](https://www.npmjs.com/package/datasink) because the `sink` name
+> was already taken there. One tool, one name — plus an npm address.
+
 <p align="center">
   <img src="docs/demos/sink-quick.gif" alt="sink-cli quick demo" width="720" />
 </p>
@@ -25,6 +29,12 @@
 </details>
 
 ---
+
+## Try it in the browser
+
+**[sink-web-indol.vercel.app](https://sink-web-indol.vercel.app)** — drop a CSV
+and watch the real engine run client-side. Your contacts never leave your
+browser; only domain names are checked against DNS. Source in [`web/`](web/).
 
 ## Quick Start
 

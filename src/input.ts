@@ -11,23 +11,10 @@ import { parseCSV } from './phases/scrub/parse.js'
 import { VERSION } from './version.js'
 import type { SinkRecord, Phase } from './types.js'
 
-// ---------------------------------------------------------------------------
-// Embedded demo data (video/contacts.csv)
-// ---------------------------------------------------------------------------
-
-export const DEMO_CSV = `name,email,outlet,role
-James Hartley,james.hartley@bbc.co.uk,BBC Radio 1,Producer
-Sophie Chen,sophie@radiox.co.uk,Radio X,Presenter
-Dan Foster,dan.foster@gmial.com,Kerrang Radio,Producer
-Rachel Torres,rachel@absoluteradio.co.uk,Absolute Radio,DJ
-Priya Kapoor,priya@diymagazine.com,DIY Magazine,Reviews Editor
-Alex Murray,alex@clash-magazine.com,Clash Magazine,Music Editor
-Liam O'Brien,liam@hotmial.com,Radio Wigwam,Presenter
-Tom Barrett,tom.barrett@radiox.co.uk,Radio X,Evening Show
-Ryan Davis,ryan@gigslutz.co.uk,GigSlutz,Editor
-Dan Foster,dan.foster@gmail.com,Kerrang Radio,Producer
-Beth Carpenter,beth@,Loud and Quiet,Reviews
-Nina Patel,nina@thelineofbestfit.com,The Line of Best Fit,Staff Writer`
+// Embedded demo data lives in demo-data.ts (pure module, browser-safe);
+// re-exported here so existing CLI imports keep working.
+export { DEMO_CSV } from './demo-data.js'
+import { DEMO_CSV } from './demo-data.js'
 
 // ---------------------------------------------------------------------------
 // Helpers

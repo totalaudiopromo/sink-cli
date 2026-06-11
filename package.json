@@ -1,7 +1,7 @@
 {
   "name": "datasink",
-  "version": "0.3.0",
-  "description": "Data hygiene for music PR — scrub, rinse, soak, steep your contact lists",
+  "version": "0.4.0",
+  "description": "sink — data hygiene for music PR. Scrub, rinse, soak, steep your contact lists. The `sink` CLI, published as datasink.",
   "license": "MIT",
   "type": "module",
   "bin": {
@@ -11,9 +11,17 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./core": {
+      "types": "./dist/core.d.ts",
+      "import": "./dist/core.js"
     }
+  },
+  "browser": {
+    "./dist/phases/scrub/net.js": "./dist/phases/scrub/net.browser.js",
+    "./dist/phases/scrub/typo-map.js": "./dist/phases/scrub/typo-map.browser.js"
   },
   "scripts": {
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
@@ -55,6 +63,8 @@
     "node": ">=20"
   },
   "keywords": [
+    "sink",
+    "datasink",
     "cli",
     "music",
     "pr",
