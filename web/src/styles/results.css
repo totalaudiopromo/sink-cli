@@ -108,3 +108,230 @@
     animation: none;
   }
 }
+
+/* ── AI phase summaries, format selector, per-contact intel ─────────────── */
+.results-section {
+  width: 100%;
+  border-top: 1px solid var(--border);
+  padding-top: 18px;
+}
+
+.results-h {
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.tag-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.tag {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--cyan);
+  background: rgba(6, 182, 212, 0.1);
+  border: 1px solid rgba(6, 182, 212, 0.35);
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+
+.intel-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.intel-item {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+}
+
+.intel-item summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+  padding: 9px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  list-style: none;
+}
+
+.intel-item summary::-webkit-details-marker {
+  display: none;
+}
+
+.intel-id {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.intel-name {
+  font-weight: 700;
+}
+
+.intel-email {
+  font-size: 11px;
+}
+
+.intel-meta {
+  font-size: 11px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.intel-body {
+  padding: 4px 12px 12px;
+  font-size: 12px;
+  line-height: 1.7;
+  border-top: 1px solid var(--border);
+}
+
+.format-selector {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.format-button {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--border);
+  padding: 11px 14px;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.format-button:last-child {
+  border-right: none;
+}
+
+.format-button.active {
+  color: var(--bg);
+  background: var(--cyan);
+}
+
+.format-button:not(.active):hover {
+  color: var(--text);
+}
+
+.results-spot {
+  padding: 18px 28px;
+}
+
+/* ── API key panel (inside the terminal body) ──────────────────────────── */
+.keypanel {
+  margin-top: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(6, 182, 212, 0.04);
+  padding: 18px 20px;
+  font-family: var(--mono);
+}
+
+.keypanel-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.keypanel-lead {
+  font-size: 12px;
+  line-height: 1.6;
+  margin-bottom: 14px;
+}
+
+.keypanel-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+
+.keypanel-field input {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 9px 11px;
+}
+
+.keypanel-field input:focus-visible {
+  border-color: var(--cyan);
+  outline: none;
+}
+
+.keypanel-remember {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.keypanel-error {
+  font-size: 12px;
+  margin-top: 10px;
+}
+
+.keypanel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.keypanel-privacy {
+  font-size: 11px;
+  line-height: 1.6;
+  margin-top: 16px;
+}
+
+/* ── Polish: copy buttons + capped intel list ──────────────────────────── */
+.intel-copy-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.copy-btn {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 7px;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.copy-btn:hover,
+.copy-btn:focus-visible {
+  color: var(--cyan);
+  border-color: var(--cyan);
+  outline: none;
+}
+
+.intel-more {
+  font-size: 12px;
+  padding: 4px 2px;
+}

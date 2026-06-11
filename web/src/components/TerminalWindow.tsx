@@ -22,7 +22,7 @@ export function TerminalWindow({
         <span className="traffic red-light" />
         <span className="traffic yellow-light" />
         <span className="traffic green-light" />
-        <span className="terminal-title">sink — data hygiene for music PR</span>
+        <span className="terminal-title">sink — contact data hygiene for the music industry</span>
       </div>
       <div className="terminal-body" role="log" aria-live="polite" ref={bodyRef}>
         {children}

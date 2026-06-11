@@ -3,10 +3,13 @@ export function CtaPanel() {
     <section className="cta" aria-label="About sink">
       <div className="cta-block">
         <h2>Prefer the terminal?</h2>
-        <p className="dim">The full pipeline — including AI enrichment — lives in the CLI.</p>
+        <p className="dim">
+          Same four phases, no key-pasting — point the CLI at a file and it reads keys from your
+          environment.
+        </p>
         <pre className="snippet">
           <code>
-            <span className="dim">$ </span>npx datasink scrub contacts.csv
+            <span className="dim">$ </span>npx datasink wash contacts.csv
           </code>
         </pre>
         <p className="dim npm-note">
@@ -23,10 +26,10 @@ export function CtaPanel() {
       </div>
 
       <div className="cta-block">
-        <h2>Want more than clean?</h2>
+        <h2>Doing this at scale?</h2>
         <p className="dim">
-          Genres, submission guidelines, and channel discovery for every outlet on your list —
-          that&rsquo;s TAP, campaign management for music PR agencies.
+          sink keeps one list clean. TAP runs the whole campaign — enriched contacts, submission
+          tracking, and coverage monitoring for music promotion.
         </p>
         <a className="tap-link" href="https://totalaudiopromo.com" rel="noopener noreferrer">
           totalaudiopromo.com →

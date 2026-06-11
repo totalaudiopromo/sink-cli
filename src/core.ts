@@ -25,6 +25,15 @@ export { exactDedup } from './phases/rinse/exact-dedup.js'
 export { fuzzyMatch, jaroWinkler } from './phases/rinse/fuzzy-match.js'
 export { crossFieldMatch } from './phases/rinse/identity.js'
 
+// Soak / Steep — pure helpers only (prompt builders + confidence calculators).
+// The phase *runners* stay on the root entry (they default to ora and read
+// process.env); browser consumers compose these helpers with their own client.
+export { buildPrompt, calculateConfidence } from './phases/soak/prompt.js'
+export { buildSteepPrompt, calculateOutletConfidence } from './phases/steep/prompt.js'
+
+// Input — pure URL helper (Google Sheets share-link rewriting)
+export { toGoogleSheetsExportUrl } from './input-browser.js'
+
 // Note: runPipeline stays on the root entry only — its lazy phase loading
 // pulls soak/steep (and their Node-flavoured deps) into browser bundles.
 // Browser consumers compose scrub() and rinse() directly.
@@ -47,9 +56,13 @@ export type {
   RawRecord,
   ScrubResult,
   RinseResult,
+  SoakResult,
+  SteepResult,
   SinkStats,
   SinkConfig,
   Phase,
   PhaseProgress,
   CacheAdapter,
+  SoakProvider,
+  SteepScraper,
 } from './types.js'
