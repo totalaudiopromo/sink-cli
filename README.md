@@ -26,6 +26,12 @@
 
 ---
 
+## Try it in the browser
+
+**[sink-web-indol.vercel.app](https://sink-web-indol.vercel.app)** — drop a CSV
+and watch the real engine run client-side. Your contacts never leave your
+browser; only domain names are checked against DNS. Source in [`web/`](web/).
+
 ## Quick Start
 
 ```bash

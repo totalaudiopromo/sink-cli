@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.3.0] - 2026-06-10
 
+### Added
+
+- **Browser-safe `datasink/core` entry.** Parse, scrub (format, typo, role,
+  disposable, MX), rinse, and output generation now run in the browser. The
+  package `browser` field swaps the MX check to Cloudflare DNS-over-HTTPS
+  (domains only — full addresses never leave the machine) and the typo-map
+  loader to a no-fs twin.
+- **Web demo** ([sink-web-indol.vercel.app](https://sink-web-indol.vercel.app),
+  source in `web/`): a single-page app that runs the real engine client-side
+  and renders the run as a live terminal session in the CLI's exact visual
+  language. pnpm workspace package; fully static; no backend.
+
 ### Security
 
 - **Production dependencies now carry zero known vulnerabilities** (down from
