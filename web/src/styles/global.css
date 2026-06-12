@@ -28,7 +28,8 @@ html {
 body {
   font-family: var(--mono);
   color: var(--text);
-  background: linear-gradient(160deg, #06b6d4 0%, #22d3ee 35%, #a5f3fc 70%, #ecfeff 100%);
+  background: linear-gradient(165deg, #06b6d4 0%, #22d3ee 40%, #67e8f9 72%, #a5f3fc 100%);
+  background-attachment: fixed;
   min-height: 100vh;
 }
 

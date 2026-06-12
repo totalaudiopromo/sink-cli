@@ -17,6 +17,7 @@ export function DropZone({
   const [urlValue, setUrlValue] = useState('')
   const [spotValue, setSpotValue] = useState('')
   const [urlError, setUrlError] = useState<string | null>(null)
+  const [fileError, setFileError] = useState<string | null>(null)
   const [fetching, setFetching] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
 
@@ -31,9 +32,26 @@ export function DropZone({
 
   const readFile = useCallback(
     (file: File) => {
+      setFileError(null)
       const reader = new FileReader()
-      reader.onload = () => submitCsv(String(reader.result ?? ''))
-      reader.readAsText(file)
+      if (/\.xlsx?$/i.test(file.name)) {
+        // Excel — parse the first sheet to CSV, then run the normal pipeline.
+        reader.onload = async () => {
+          try {
+            const XLSX = await import('xlsx')
+            const wb = XLSX.read(reader.result, { type: 'array' })
+            const sheet = wb.Sheets[wb.SheetNames[0]]
+            if (!sheet) throw new Error('empty workbook')
+            submitCsv(XLSX.utils.sheet_to_csv(sheet))
+          } catch {
+            setFileError('Couldn’t read that spreadsheet — try exporting it as CSV.')
+          }
+        }
+        reader.readAsArrayBuffer(file)
+      } else {
+        reader.onload = () => submitCsv(String(reader.result ?? ''))
+        reader.readAsText(file)
+      }
     },
     [submitCsv],
   )
@@ -99,7 +117,7 @@ export function DropZone({
       <input
         ref={fileInput}
         type="file"
-        accept=".csv,text/csv,text/plain"
+        accept=".csv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
         hidden
         onChange={(e) => {
           const file = e.target.files?.[0]
@@ -108,9 +126,10 @@ export function DropZone({
       />
       <div className="dropzone-inner">
         <div className="dropzone-glyph cyan">◇</div>
-        <p className="dropzone-title">Drop your contacts CSV here</p>
+        <p className="dropzone-title">Drop your contacts CSV or Excel file</p>
         <p className="dim">click to browse, or paste straight from your spreadsheet</p>
         {error && <p className="red dropzone-error">{error}</p>}
+        {fileError && <p className="red dropzone-error">{fileError}</p>}
 
         <div className="dropzone-extras" onClick={(e) => e.stopPropagation()}>
           <button type="button" className="demo-button" onClick={() => submitCsv('__DEMO__')}>
