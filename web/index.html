@@ -1,6 +1,43 @@
 <!doctype html>
 <html lang="en-GB">
   <head>
+    <!-- Google Analytics -->
+    <script>
+      const gaId = "%VITE_GA_MEASUREMENT_ID%";
+      if (gaId && !gaId.startsWith("%")) {
+        const script = document.createElement('script');
+        script.async = true;
+        script.src = 'https://www.googletagmanager.com/gtag/js?id=' + gaId;
+        document.head.appendChild(script);
+
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', gaId);
+      }
+    </script>
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "@id": "https://datasink.dev/#software",
+        "name": "datasink",
+        "url": "https://datasink.dev",
+        "applicationCategory": "BusinessApplication",
+        "applicationSubCategory": "Contact Data Hygiene Tool",
+        "operatingSystem": "Web-based / CLI",
+        "description": "Scrub, verify, and deduplicate your music-industry contact list in your browser, then enrich curations with AI.",
+        "offers": {
+          "@type": "Offer",
+          "price": "0.00",
+          "priceCurrency": "GBP",
+          "availability": "https://schema.org/InStock",
+          "url": "https://datasink.dev/"
+        }
+      }
+    </script>
+    <meta name="google-site-verification" content="B6BqeO9Na9j9e98t5nxpGvsJoQB_ApUIqZRxaOiV-jE" />
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>sink — contact data hygiene for the music industry</title>
