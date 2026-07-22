@@ -9,7 +9,132 @@ import { runPipeline, loadConfig, parseCSV } from '../src/index.js'
 import { readFileSync, readdirSync } from 'node:fs'
 import { resolve, basename } from 'node:path'
 import { nanoid } from 'nanoid'
-import type { SinkRecord, Phase } from '../src/types.js'
+import type { SinkRecord, Phase, SoakProvider, SteepScraper, SoakResult } from '../src/types.js'
+
+// ── Mock providers (CI-safe: no real API calls) ─────────────────
+//
+// The registries are module-level singletons. After importing the phase
+// modules (transitively via ../src/index.js), we overwrite the built-in
+// 'anthropic' / 'firecrawl' entries with deterministic mock factories.
+// This lets the steep + soak benchmarks exercise the full pipeline shape
+// (scrub → steep / soak) without any network or API credentials.
+
+import { registerProvider as registerSoakProvider } from '../src/phases/soak/registry.js'
+import { registerScraper } from '../src/phases/steep/registry.js'
+
+// Mock SoakProvider — returns canned enrichment data per outlet
+class MockSoakProvider implements SoakProvider {
+  name = 'mock-anthropic'
+
+  async init(): Promise<void> {}
+  async dispose(): Promise<void> {}
+
+  async enrich(record: SinkRecord): Promise<SoakResult> {
+    const outlet = record.raw.outlet ?? ''
+    // Deterministic mock responses keyed by outlet
+    if (outlet.includes('BBC')) {
+      return {
+        provider: 'mock-anthropic',
+        platform: 'BBC Radio 1',
+        platformType: 'radio',
+        roleDetail: 'Producer — daytime shows',
+        genres: ['pop', 'indie', 'dance'],
+        coverageArea: 'United Kingdom',
+        contactMethod: 'Email preferred',
+        bestTiming: '2-3 weeks before release',
+        submissionGuidelines: 'Submit via BBC Introduce portal',
+        pitchTips: ['Lead with ISRC', 'Mention UK tour dates'],
+        geographicScope: 'national',
+        confidence: 'high',
+      }
+    }
+    if (outlet.includes('NME')) {
+      return {
+        provider: 'mock-anthropic',
+        platform: 'NME',
+        platformType: 'press',
+        roleDetail: 'Music Editor — reviews',
+        genres: ['indie', 'rock', 'alternative'],
+        coverageArea: 'Global (UK-based)',
+        contactMethod: 'Email',
+        bestTiming: 'Monday mornings',
+        submissionGuidelines: 'Stream links preferred over MP3 attachments',
+        pitchTips: ['Include streaming link', 'Reference recent NME coverage'],
+        geographicScope: 'national',
+        confidence: 'high',
+      }
+    }
+    // Default / Radio X
+    return {
+      provider: 'mock-anthropic',
+      platform: 'Radio X',
+      platformType: 'radio',
+      roleDetail: 'Presenter — evening slot',
+      genres: ['rock', 'indie'],
+      coverageArea: 'United Kingdom',
+      contactMethod: 'Email',
+      bestTiming: 'Weekday afternoons',
+      pitchTips: ['Keep it short', 'Lead with the hook'],
+      geographicScope: 'national',
+      confidence: 'medium',
+    }
+  }
+
+  // Used by the steep phase for grounded extraction
+  async complete(): Promise<string> {
+    return JSON.stringify({
+      outletInstagram: '@mockradio',
+      outletTwitter: '@mockradio',
+      submissionPortalUrl: 'https://example.com/submit',
+      submissionEmail: 'submissions@example.com',
+      submissionFormat: 'mp3',
+      recentPresenters: ['James Hartley', 'Tom Richards'],
+      recentCoverage: ['Recent feature on indie artists'],
+      pitchHooks: ['Currently accepting unsigned artists', 'Prefers MP3 over streaming links'],
+      contacts: {
+        'James Hartley': {
+          role: 'Producer',
+          instagram: '@jhartley',
+          linkedIn: 'https://linkedin.com/in/jhartley',
+        },
+        'Sarah Jones': {
+          role: 'Music Editor',
+          twitter: '@sarahjones',
+        },
+      },
+      confidenceNotes: 'All values grounded in visible page text',
+    })
+  }
+}
+
+// Mock SteepScraper — returns canned website text per domain
+class MockScraper implements SteepScraper {
+  name = 'mock-firecrawl'
+
+  async init(): Promise<void> {}
+  async dispose(): Promise<void> {}
+
+  async scrape(outletDomain: string): Promise<{ text: string; pagesFetched: string[] }> {
+    if (!outletDomain.includes('.')) {
+      return { text: '', pagesFetched: [] }
+    }
+    const text = [
+      `---PAGE: https://${outletDomain}---`,
+      `Welcome to ${outletDomain}. Follow us @mockradio on Instagram and Twitter.`,
+      `Submissions: send MP3 to submissions@${outletDomain} or use our portal at https://${outletDomain}/submit.`,
+      ``,
+      `---PAGE: https://${outletDomain}/team---`,
+      `James Hartley — Producer. Instagram: @jhartley. LinkedIn: linkedin.com/in/jhartley`,
+      `Sarah Jones — Music Editor. Twitter: @sarahjones`,
+      `Currently accepting unsigned indie artists. Prefers MP3 over streaming links.`,
+    ].join('\n')
+    return { text, pagesFetched: [`https://${outletDomain}`, `https://${outletDomain}/team`] }
+  }
+}
+
+// Register mocks, overriding the built-in entries
+registerSoakProvider('anthropic', async () => new MockSoakProvider())
+registerScraper('firecrawl', async () => new MockScraper())
 
 interface EvalResult {
   benchmark: string
@@ -353,6 +478,154 @@ function evalRealWorld(records: SinkRecord[]): EvalResult[] {
   return results
 }
 
+function evalSteep(records: SinkRecord[]): EvalResult[] {
+  const results: EvalResult[] = []
+
+  // 1. All contacts with a domain should have a steep result attached
+  const withSteep = records.filter((r) => r.steep != null)
+  results.push({
+    benchmark: '08-steep',
+    eval: 'attaches steep result to contacts',
+    pass: withSteep.length >= 3,
+    detail: `${withSteep.length} of ${records.length} records have steep data`,
+  })
+
+  // 2. Outlet-level social channels extracted
+  const hasOutletSocial = withSteep.some(
+    (r) => r.steep?.outletInstagram || r.steep?.outletTwitter,
+  )
+  results.push({
+    benchmark: '08-steep',
+    eval: 'extracts outlet social channels',
+    pass: hasOutletSocial,
+    detail: hasOutletSocial ? 'outlet Instagram/Twitter found' : 'no outlet socials extracted',
+  })
+
+  // 3. Submission portal or email extracted
+  const hasSubmission = withSteep.some(
+    (r) => r.steep?.submissionPortalUrl || r.steep?.submissionEmail,
+  )
+  results.push({
+    benchmark: '08-steep',
+    eval: 'extracts submission info',
+    pass: hasSubmission,
+    detail: hasSubmission ? 'submission portal/email found' : 'no submission info extracted',
+  })
+
+  // 4. Contact attribution — James Hartley should be confirmed at outlet
+  const james = records.find((r) => r.raw.name.includes('James'))
+  results.push({
+    benchmark: '08-steep',
+    eval: 'attributes contact to outlet (James)',
+    pass: james?.steep?.confirmedAtOutlet === true,
+    detail: james?.steep
+      ? `confirmedAtOutlet=${james.steep.confirmedAtOutlet}`
+      : 'no steep result for James',
+  })
+
+  // 5. Contact-level social extracted from team page
+  const hasContactSocial = james?.steep?.contactInstagram != null || james?.steep?.contactLinkedIn != null
+  results.push({
+    benchmark: '08-steep',
+    eval: 'extracts per-contact social (James)',
+    pass: hasContactSocial === true,
+    detail: hasContactSocial
+      ? `instagram=${james?.steep?.contactInstagram}, linkedIn=${james?.steep?.contactLinkedIn}`
+      : 'no per-contact socials extracted',
+  })
+
+  // 6. Pitch hooks extracted (grounded intelligence)
+  const hasHooks = withSteep.some((r) => r.steep?.pitchHooks && r.steep.pitchHooks.length > 0)
+  results.push({
+    benchmark: '08-steep',
+    eval: 'extracts pitch hooks',
+    pass: hasHooks,
+    detail: hasHooks ? 'pitch hooks found' : 'no pitch hooks extracted',
+  })
+
+  // 7. Confidence is not 'none' (scrape + extraction succeeded)
+  const noNone = withSteep.every((r) => r.steep?.confidence.overall !== 'none')
+  results.push({
+    benchmark: '08-steep',
+    eval: 'confidence is not none',
+    pass: withSteep.length > 0 && noNone,
+    detail: noNone ? 'all records have meaningful confidence' : 'some records have confidence=none',
+  })
+
+  return results
+}
+
+function evalSoak(records: SinkRecord[]): EvalResult[] {
+  const results: EvalResult[] = []
+
+  // 1. All contacts with valid email should have a soak result
+  const withSoak = records.filter((r) => r.soak != null)
+  results.push({
+    benchmark: '09-soak',
+    eval: 'attaches soak result to contacts',
+    pass: withSoak.length >= 3,
+    detail: `${withSoak.length} of ${records.length} records have soak data`,
+  })
+
+  // 2. Platform type classified correctly
+  const james = records.find((r) => r.raw.name.includes('James'))
+  results.push({
+    benchmark: '09-soak',
+    eval: 'classifies BBC as radio',
+    pass: james?.soak?.platformType === 'radio',
+    detail: james?.soak ? `platformType=${james.soak.platformType}` : 'no soak result for James',
+  })
+
+  // 3. NME classified as press
+  const sarah = records.find((r) => r.raw.name.includes('Sarah'))
+  results.push({
+    benchmark: '09-soak',
+    eval: 'classifies NME as press',
+    pass: sarah?.soak?.platformType === 'press',
+    detail: sarah?.soak ? `platformType=${sarah.soak.platformType}` : 'no soak result for Sarah',
+  })
+
+  // 4. Genres populated
+  const hasGenres = withSoak.every((r) => r.soak?.genres && r.soak.genres.length > 0)
+  results.push({
+    benchmark: '09-soak',
+    eval: 'populates genres',
+    pass: withSoak.length > 0 && hasGenres,
+    detail: hasGenres ? 'all records have genres' : 'some records missing genres',
+  })
+
+  // 5. Pitch tips populated
+  const hasPitchTips = withSoak.every((r) => r.soak?.pitchTips && r.soak.pitchTips.length > 0)
+  results.push({
+    benchmark: '09-soak',
+    eval: 'populates pitch tips',
+    pass: withSoak.length > 0 && hasPitchTips,
+    detail: hasPitchTips ? 'all records have pitch tips' : 'some records missing pitch tips',
+  })
+
+  // 6. Confidence is high or medium (not none/low)
+  const goodConfidence = withSoak.every(
+    (r) => r.soak?.confidence === 'high' || r.soak?.confidence === 'medium',
+  )
+  results.push({
+    benchmark: '09-soak',
+    eval: 'confidence is high or medium',
+    pass: withSoak.length > 0 && goodConfidence,
+    detail: goodConfidence ? 'all records have good confidence' : 'some records have low/none confidence',
+  })
+
+  // 7. Geographic scope populated
+  const hasGeoScope = withSoak.every((r) => r.soak?.geographicScope != null)
+  results.push({
+    benchmark: '09-soak',
+    eval: 'populates geographic scope',
+    pass: withSoak.length > 0 && hasGeoScope,
+    detail: hasGeoScope ? 'all records have geographicScope' : 'some records missing geographicScope',
+  })
+
+  return results
+}
+
 // ── Main ────────────────────────────────────────────────────────
 
 async function main() {
@@ -372,9 +645,14 @@ async function main() {
     }
 
     // Determine which phases to run based on benchmark
-    const phases: Phase[] = file.includes('dedup') || file.includes('real-world')
-      ? ['scrub', 'rinse']
-      : ['scrub']
+    const phases: Phase[] =
+      file.includes('dedup') || file.includes('real-world')
+        ? ['scrub', 'rinse']
+        : file.includes('steep')
+          ? ['scrub', 'steep']
+          : file.includes('soak')
+            ? ['scrub', 'soak']
+            : ['scrub']
 
     const { records: processed } = await runPipeline(records, { phases, config })
 
@@ -388,6 +666,8 @@ async function main() {
       case '05': allResults.push(...evalHeaders(processed)); break
       case '06': allResults.push(...evalMessy(processed)); break
       case '07': allResults.push(...evalRealWorld(processed)); break
+      case '08': allResults.push(...evalSteep(processed)); break
+      case '09': allResults.push(...evalSoak(processed)); break
     }
   }
 
