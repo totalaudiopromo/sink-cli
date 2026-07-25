@@ -1,0 +1,19 @@
+{
+  "$schema": "https://schemas.agentskills.io/discovery/0.2.0/schema.json",
+  "skills": [
+    {
+      "name": "datasink",
+      "type": "skill-md",
+      "description": "Data hygiene workflows for music PR contact lists (scrub, rinse, soak, steep).",
+      "url": "https://datasink.dev/.well-known/agent-skills/datasink/SKILL.md",
+      "digest": "sha256:d24189d2248a8905ac17f46796d1bf0dc98ddf986c61123194a139014d21ae9c"
+    },
+    {
+      "name": "auth-md",
+      "type": "skill-md",
+      "description": "Agent registration and authentication for datasink API services.",
+      "url": "https://datasink.dev/.well-known/agent-skills/auth-md/SKILL.md",
+      "digest": "sha256:80411a7c95148806038f258ae8c7b7ffbf49b51cf0d6740bce87d17fa4b7874b"
+    }
+  ]
+}

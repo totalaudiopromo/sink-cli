@@ -1,0 +1,25 @@
+{
+  "linkset": [
+    {
+      "anchor": "https://datasink.dev/api",
+      "service-desc": [
+        {
+          "href": "https://datasink.dev/docs/openapi.json",
+          "type": "application/openapi+json"
+        }
+      ],
+      "service-doc": [
+        {
+          "href": "https://datasink.dev/docs/api",
+          "type": "text/html"
+        }
+      ],
+      "status": [
+        {
+          "href": "https://datasink.dev/api/health",
+          "type": "application/json"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+# datasink — Data Hygiene for Music PR
+
+> `sink` is a CLI and browser data hygiene suite for music PR contact lists published on npm as `datasink`. It scrubs syntax errors, deduplicates contacts across fields, enriches metadata, and segments list relevance.
+
+## Core Capabilities
+- [Scrub](https://datasink.dev/#scrub): Format validation, MX record lookup, typo mapping (e.g., `gmal.com` -> `gmail.com`), disposable domain detection, and role account tagging.
+- [Rinse](https://datasink.dev/#rinse): Multi-field deduplication by exact email, fuzzy contact name, and publication domain.
+- [Soak](https://datasink.dev/#soak): LLM-driven contact enrichment for missing fields, social profiles, and publication details.
+- [Steep](https://datasink.dev/#steep): Campaign relevance scoring and AI outlet scraping for targeted PR lists.
+
+## Machine Discovery & Endpoints
+- [API Catalog](https://datasink.dev/.well-known/api-catalog): RFC 9727 linkset documentation.
+- [Extended LLM Spec](https://datasink.dev/llms-full.txt): Complete technical schema details and examples.
+- [ChatGPT Plugin Manifest](https://datasink.dev/.well-known/ai-plugin.json): OpenAI Custom Action manifest.
+- [MCP Server Card](https://datasink.dev/.well-known/mcp/server-card.json): SEP-1649 MCP Server Card.
+- [Agent Skills Index](https://datasink.dev/.well-known/agent-skills/index.json): Skills discovery index (v0.2.0).
+- [Agent Auth](https://datasink.dev/auth.md): Auth.md registration instructions.
+- [Security Policy](https://datasink.dev/.well-known/security.txt): Security disclosure policy (RFC 9116).

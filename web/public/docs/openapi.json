@@ -1,0 +1,79 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "datasink API",
+    "description": "Data hygiene API for music PR contact lists. Scrub syntax and typos, deduplicate contacts, enrich media metadata, and segment list relevance.",
+    "version": "0.4.0",
+    "contact": {
+      "name": "Total Audio Promo",
+      "url": "https://totalaudiopromo.com",
+      "email": "support@totalaudiopromo.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://datasink.dev",
+      "description": "Production server"
+    }
+  ],
+  "paths": {
+    "/api/health": {
+      "get": {
+        "summary": "Health check",
+        "description": "Returns operational status of datasink web services.",
+        "responses": {
+          "200": {
+            "description": "Healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "ok" },
+                    "version": { "type": "string", "example": "0.4.0" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/firecrawl-proxy": {
+      "post": {
+        "summary": "Outlet page scrape",
+        "description": "Proxy for retrieving outlet markdown via Firecrawl for steep phase analysis.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "url": { "type": "string", "example": "https://example-music-blog.com" },
+                  "firecrawlKey": { "type": "string", "example": "fc-..." }
+                },
+                "required": ["url", "firecrawlKey"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Scraped markdown output",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "markdown": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

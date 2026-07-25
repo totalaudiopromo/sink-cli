@@ -23,3 +23,5 @@ scripts/demos/
 demo-data*.csv
 coverage/
 node_modules.pnpm10.bak/
+.pnpm-store/
+

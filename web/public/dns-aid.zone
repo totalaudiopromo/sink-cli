@@ -1,0 +1,11 @@
+; DNS for AI Discovery (DNS-AID) Zone File Records for datasink.dev
+; RFC 9460 SVCB/HTTPS ServiceMode records for agent discovery under the _agents namespace
+
+$ORIGIN datasink.dev.
+$TTL 3600
+
+; Primary Agent-to-Agent discovery endpoint
+_a2a._agents   IN  SVCB  1 datasink.dev. alpn="a2a" port=443 mandatory="alpn,port"
+
+; Primary Agent Index discovery endpoint
+_index._agents IN  SVCB  1 datasink.dev. alpn="a2a" port=443 mandatory="alpn,port" key65534="/.well-known/agent-skills/index.json"

@@ -13,7 +13,8 @@
     "datasink": "workspace:*",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
+    "posthog-js": "^1.407.2"
   },
   "devDependencies": {
     "@types/react": "^19.2.0",

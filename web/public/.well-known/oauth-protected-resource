@@ -1,0 +1,15 @@
+{
+  "resource": "https://datasink.dev",
+  "authorization_servers": [
+    "https://datasink.dev"
+  ],
+  "scopes_supported": [
+    "read",
+    "write",
+    "scrub",
+    "enrich"
+  ],
+  "bearer_methods_supported": [
+    "header"
+  ]
+}

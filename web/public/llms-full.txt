@@ -1,0 +1,116 @@
+# datasink Extended Technical Specification & LLM Reference
+
+> Full schema definitions, phase algorithms, cURL examples, and CLI parameter reference for AI agents, high-context LLMs, and automated integrations.
+
+## Overview
+`datasink` (published on npm as `datasink`, binary `sink`) cleans and enriches music PR contact lists through a 4-stage pipeline: `scrub` -> `rinse` -> `soak` -> `steep`.
+
+---
+
+## Technical Pipeline Phases
+
+### Phase 1: Scrub (Format & Deliverability Validation)
+- **Email Regex & Normalisation**: Lowercases domains, trims whitespace, standardizes separators.
+- **Typo Correction Engine**: Applies 200+ domain typo mappings (e.g., `hotmial.com` -> `hotmail.com`, `gamil.com` -> `gmail.com`).
+- **Disposable Domain Filter**: Checks against 3,000+ known disposable and burner email domains.
+- **MX Record Validation**: Checks domain DNS for active mail exchanger records.
+- **Role Account Tagging**: Identifies non-personal mailboxes (`info@`, `press@`, `contact@`, `editor@`).
+
+### Phase 2: Rinse (Deduplication)
+- **Exact Email Matching**: Merges duplicate records sharing the same normalized email address.
+- **Fuzzy Name Matching**: Jaro-Winkler string similarity (threshold >= 0.92) across contact names within identical publication domains.
+- **Cross-Field Reconciliation**: Combines raw field metadata into single primary records, preserving audit histories in `phases[]`.
+
+### Phase 3: Soak (LLM Metadata Enrichment)
+- **Provider Support**: Anthropic Claude (`claude-3-7-sonnet`, `claude-3-5-haiku`) or OpenAI (`gpt-4o`).
+- **Enrichment Target**: Extracts missing contact names, job titles, Instagram handles, music genres covered, and outlet locations.
+
+### Phase 4: Steep (Targeting & Relevance Scoring)
+- **Outlet Web Scrape**: Uses Firecrawl (`/v1/scrape`) to retrieve fresh submission guidelines from publication websites.
+- **Relevance Scoring**: Evaluates candidate contacts against campaign genre tags and target music styles (score 0-100).
+
+---
+
+## Machine Schemas & Output Data Model
+
+### SinkRecord Schema (JSON)
+```json
+{
+  "id": "uuid-v4-string",
+  "raw": {
+    "name": "Jane Doe",
+    "email": "jane@musicblog.com",
+    "outlet": "The Music Blog"
+  },
+  "scrub": {
+    "email": {
+      "original": "jane@musicblog.com",
+      "normalised": "jane@musicblog.com",
+      "valid": true,
+      "confidence": "high",
+      "corrected": false,
+      "disposable": false,
+      "roleBased": false,
+      "catchAll": false,
+      "checks": {
+        "regex": true,
+        "mx": true
+      }
+    }
+  },
+  "rinse": {
+    "duplicate": false,
+    "mergedWith": null,
+    "matchType": null
+  },
+  "timestamp": "2026-07-25T22:00:00.000Z"
+}
+```
+
+---
+
+## cURL & API Integration Examples
+
+### 1. Health Check
+```bash
+curl -X GET https://datasink.dev/api/health \
+  -H "Accept: application/json"
+```
+
+### 2. Machine Discovery Catalog
+```bash
+curl -X GET https://datasink.dev/.well-known/api-catalog \
+  -H "Accept: application/linkset+json"
+```
+
+### 3. Agent Markdown Page Request
+```bash
+curl -X GET https://datasink.dev/ \
+  -H "Accept: text/markdown"
+```
+
+---
+
+## CLI Command Reference
+
+```bash
+# Scrub contacts file
+npx datasink scrub contacts.csv
+
+# Run full pipeline with custom threshold
+npx datasink scrub contacts.csv --rinse --fuzzy-threshold 0.95
+
+# Spot-check individual email address
+npx datasink spot jane@musicblog.com
+```
+
+---
+
+## Standards Compliance
+- **RFC 8288**: Web Linking via `Link` response headers.
+- **RFC 9727**: API Catalog specification (`/.well-known/api-catalog`).
+- **RFC 9728**: OAuth Protected Resource Metadata (`/.well-known/oauth-protected-resource`).
+- **RFC 9116**: Security vulnerability reporting (`/.well-known/security.txt`).
+- **SEP-1649**: Model Context Protocol Server Card (`/.well-known/mcp/server-card.json`).
+- **Agent Skills Discovery RFC v0.2.0**: Index at `/.well-known/agent-skills/index.json`.
+- **Content Signals**: robots.txt directives (`ai-train=no, search=yes, ai-input=no`).

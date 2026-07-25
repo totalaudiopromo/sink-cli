@@ -1,0 +1,20 @@
+{
+  "serverInfo": {
+    "name": "datasink",
+    "version": "0.4.0",
+    "description": "Data hygiene suite for music PR contact lists: scrub, rinse, soak, steep."
+  },
+  "endpoint": "/api/mcp",
+  "capabilities": {
+    "tools": {
+      "listChanged": true
+    },
+    "resources": {
+      "subscribe": false,
+      "listChanged": true
+    },
+    "prompts": {
+      "listChanged": true
+    }
+  }
+}

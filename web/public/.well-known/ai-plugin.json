@@ -1,0 +1,17 @@
+{
+  "schema_version": "v1",
+  "name_for_human": "datasink",
+  "name_for_model": "datasink",
+  "description_for_human": "Data hygiene suite for music PR contact lists. Scrub, rinse, soak, steep.",
+  "description_for_model": "Plugin for scrubbing, deduplicating, validating syntax, and enriching music PR contact lists and email addresses.",
+  "auth": {
+    "type": "none"
+  },
+  "api": {
+    "type": "openapi",
+    "url": "https://datasink.dev/docs/openapi.json"
+  },
+  "logo_url": "https://datasink.dev/favicon.svg",
+  "contact_email": "support@totalaudiopromo.com",
+  "legal_info_url": "https://datasink.dev"
+}
